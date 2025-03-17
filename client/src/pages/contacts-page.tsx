@@ -227,7 +227,7 @@ export default function ContactsPage() {
         isOpen={isContactFormOpen}
         onClose={() => setIsContactFormOpen(false)}
         onSubmit={handleContactSubmit}
-        contact={selectedContact}
+        contact={selectedContact || undefined}
       />
       
       {/* Contact Detail Modal */}
@@ -235,7 +235,7 @@ export default function ContactsPage() {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         onEdit={handleEditContact}
-        contact={selectedContact}
+        contact={selectedContact || null}
       />
     </div>
   );

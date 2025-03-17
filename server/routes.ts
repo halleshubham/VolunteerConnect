@@ -3,7 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import multer from "multer";
-import { insertContactSchema, insertEventSchema, insertFollowUpSchema } from "@shared/schema";
+import { 
+  insertContactSchema, 
+  insertEventSchema, 
+  insertFollowUpSchema,
+  Contact 
+} from "@shared/schema";
 import { z } from "zod";
 import * as ExcelJS from "exceljs";
 
