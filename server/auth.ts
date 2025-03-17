@@ -31,14 +31,15 @@ async function comparePasswords(supplied: string, stored: string) {
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "contact-manager-secret-key",
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Force the session to be saved back to the store
+    saveUninitialized: true, // Save uninitialized sessions
     store: storage.sessionStore,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
       secure: false, // Set to false for development
       sameSite: "lax",
+      path: "/",
     }
   };
 
@@ -93,11 +94,29 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    console.log("Login successful, sessionID:", req.sessionID);
-    console.log("Session after login:", req.session);
-    console.log("User after login:", req.user);
-    res.status(200).json(req.user);
+  app.post("/api/login", (req, res, next) => {
+    passport.authenticate("local", (err, user, info) => {
+      if (err) return next(err);
+      
+      if (!user) {
+        console.log("Login failed: Invalid credentials");
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      
+      req.login(user, (err) => {
+        if (err) return next(err);
+        
+        console.log("Login successful, user:", user.username);
+        console.log("Session ID:", req.sessionID);
+        console.log("Session saved:", req.session);
+        
+        // Ensure session is saved before responding
+        req.session.save((err) => {
+          if (err) return next(err);
+          return res.status(200).json(user);
+        });
+      });
+    })(req, res, next);
   });
 
   app.post("/api/logout", (req, res, next) => {
@@ -108,16 +127,17 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    console.log("Session ID:", req.sessionID);
-    console.log("Is authenticated:", req.isAuthenticated());
-    console.log("Session data:", req.session);
+    console.log("GET /api/user - Session ID:", req.sessionID);
+    console.log("GET /api/user - Is authenticated:", req.isAuthenticated());
+    console.log("GET /api/user - Session:", JSON.stringify(req.session, null, 2));
+    console.log("GET /api/user - Headers:", JSON.stringify(req.headers, null, 2));
     
     if (!req.isAuthenticated()) {
-      console.log("User not authenticated");
-      return res.sendStatus(401);
+      console.log("GET /api/user - User not authenticated");
+      return res.status(401).json({ error: "Not authenticated" });
     }
     
-    console.log("User authenticated:", req.user);
+    console.log("GET /api/user - User authenticated:", JSON.stringify(req.user, null, 2));
     res.json(req.user);
   });
 }

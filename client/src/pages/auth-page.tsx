@@ -55,22 +55,26 @@ export default function AuthPage() {
   });
 
   // Handle login
-  const onLogin = (values: z.infer<typeof loginSchema>) => {
-    loginMutation.mutate(values, {
-      onSuccess: () => {
-        navigate("/");
-      }
-    });
+  const onLogin = async (values: z.infer<typeof loginSchema>) => {
+    try {
+      await loginMutation.mutateAsync(values);
+      console.log("Login successful, redirecting to home page");
+      navigate("/");
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
   };
 
   // Handle registration
-  const onRegister = (values: z.infer<typeof registerSchema>) => {
-    const { confirmPassword, ...userData } = values;
-    registerMutation.mutate(userData, {
-      onSuccess: () => {
-        navigate("/");
-      }
-    });
+  const onRegister = async (values: z.infer<typeof registerSchema>) => {
+    try {
+      const { confirmPassword, ...userData } = values;
+      await registerMutation.mutateAsync(userData);
+      console.log("Registration successful, redirecting to home page");
+      navigate("/");
+    } catch (error) {
+      console.error("Registration failed:", error);
+    }
   };
 
   return (

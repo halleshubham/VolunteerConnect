@@ -37,17 +37,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json();
+      try {
+        const res = await apiRequest("POST", "/api/login", credentials);
+        const userData = await res.json();
+        return userData;
+      } catch (error) {
+        console.error("Login API error:", error);
+        throw error;
+      }
     },
     onSuccess: (user: SelectUser) => {
+      // Immediately set the user data in the cache
       queryClient.setQueryData(["/api/user"], user);
+      
+      // Force a refetch to ensure we have the latest data
+      setTimeout(() => {
+        refetch();
+      }, 100);
+      
       toast({
         title: "Login successful",
         description: `Welcome, ${user.username}!`,
       });
     },
     onError: (error: Error) => {
+      console.error("Login mutation error:", error);
       toast({
         title: "Login failed",
         description: error.message,
@@ -58,17 +72,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: InsertUser) => {
-      const res = await apiRequest("POST", "/api/register", credentials);
-      return await res.json();
+      try {
+        const res = await apiRequest("POST", "/api/register", credentials);
+        const userData = await res.json();
+        return userData;
+      } catch (error) {
+        console.error("Registration API error:", error);
+        throw error;
+      }
     },
     onSuccess: (user: SelectUser) => {
+      // Immediately set the user data in the cache
       queryClient.setQueryData(["/api/user"], user);
+      
+      // Force a refetch to ensure we have the latest data
+      setTimeout(() => {
+        refetch();
+      }, 100);
+      
       toast({
         title: "Registration successful",
         description: `Welcome, ${user.username}!`,
       });
     },
     onError: (error: Error) => {
+      console.error("Registration mutation error:", error);
       toast({
         title: "Registration failed",
         description: error.message,
