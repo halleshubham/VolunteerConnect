@@ -13,10 +13,18 @@ function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
-      <ProtectedRoute path="/" component={DashboardPage} />
-      <ProtectedRoute path="/contacts" component={ContactsPage} />
-      <ProtectedRoute path="/contacts/:id" component={ContactDetailPage} />
-      <ProtectedRoute path="/events" component={EventsPage} />
+      <Route path="/">
+        {() => <ProtectedRoute component={DashboardPage} />}
+      </Route>
+      <Route path="/contacts">
+        {() => <ProtectedRoute component={ContactsPage} />}
+      </Route>
+      <Route path="/contacts/:id">
+        {() => <ProtectedRoute component={() => <ContactDetailPage />} />}
+      </Route>
+      <Route path="/events">
+        {() => <ProtectedRoute component={EventsPage} />}
+      </Route>
       <Route path="*" component={NotFound} />
     </Switch>
   );

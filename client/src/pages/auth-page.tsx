@@ -56,13 +56,21 @@ export default function AuthPage() {
 
   // Handle login
   const onLogin = (values: z.infer<typeof loginSchema>) => {
-    loginMutation.mutate(values);
+    loginMutation.mutate(values, {
+      onSuccess: () => {
+        navigate("/");
+      }
+    });
   };
 
   // Handle registration
   const onRegister = (values: z.infer<typeof registerSchema>) => {
     const { confirmPassword, ...userData } = values;
-    registerMutation.mutate(userData);
+    registerMutation.mutate(userData, {
+      onSuccess: () => {
+        navigate("/");
+      }
+    });
   };
 
   return (
