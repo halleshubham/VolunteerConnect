@@ -99,14 +99,14 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
           <div>
             <Label htmlFor="category">Category</Label>
             <Select
-              value={filters.category}
-              onValueChange={(value) => handleSelectChange("category", value)}
+              value={filters.category || 'all'}
+              onValueChange={(value) => handleSelectChange("category", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="volunteer">Volunteer</SelectItem>
                 <SelectItem value="donor">Donor</SelectItem>
                 <SelectItem value="partner">Partner</SelectItem>
