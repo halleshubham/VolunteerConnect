@@ -37,7 +37,7 @@ export function setupAuth(app: Express) {
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Set to false for development
       sameSite: "lax",
     }
   };
@@ -94,6 +94,9 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
+    console.log("Login successful, sessionID:", req.sessionID);
+    console.log("Session after login:", req.session);
+    console.log("User after login:", req.user);
     res.status(200).json(req.user);
   });
 
@@ -105,7 +108,16 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    console.log("Session ID:", req.sessionID);
+    console.log("Is authenticated:", req.isAuthenticated());
+    console.log("Session data:", req.session);
+    
+    if (!req.isAuthenticated()) {
+      console.log("User not authenticated");
+      return res.sendStatus(401);
+    }
+    
+    console.log("User authenticated:", req.user);
     res.json(req.user);
   });
 }
