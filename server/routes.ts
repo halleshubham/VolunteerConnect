@@ -463,11 +463,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             result.created++;
           }
           
-          // Add attendance record for the event
-          await storage.createAttendance({
-            contactId: contact.id,
-            eventId: parseInt(eventId)
-          });
+          // Add attendance record for the event if contact exists
+          if (contact) {
+            await storage.createAttendance({
+              contactId: contact.id,
+              eventId: parseInt(eventId)
+            });
+          }
           
         } catch (error) {
           result.errors.push(`Row ${rowNumber}: ${(error as Error).message}`);

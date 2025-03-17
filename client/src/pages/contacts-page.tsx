@@ -181,6 +181,37 @@ export default function ContactsPage() {
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
+          ) : contacts.length === 0 ? (
+            <div className="bg-white shadow rounded-lg p-8 text-center">
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-6">
+                  <UserPlus className="h-12 w-12 text-primary" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 mb-2">No contacts yet</h3>
+                <p className="text-gray-500 max-w-md mb-6">
+                  Get started by creating your first contact or importing contacts from an Excel file.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    onClick={handleAddContact}
+                    className="inline-flex items-center"
+                    size="lg"
+                  >
+                    <UserPlus className="-ml-1 mr-2 h-5 w-5" />
+                    Add Your First Contact
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="inline-flex items-center"
+                    onClick={() => window.location.href = "/api/import"}
+                    size="lg"
+                  >
+                    <FileUp className="-ml-1 mr-2 h-5 w-5" />
+                    Import from Excel
+                  </Button>
+                </div>
+              </div>
+            </div>
           ) : (
             <ContactTable 
               contacts={contacts} 
