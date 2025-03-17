@@ -31,12 +31,36 @@ import {
 } from "@/components/ui/select";
 import { X } from "lucide-react";
 
+// Create a contact form type that handles all the field types correctly
+type ContactFormData = {
+  id?: number;
+  name: string;
+  mobile: string;
+  email: string;
+  area: string;
+  city: string;
+  state: string;
+  nation: string;
+  priority: string;
+  category: string;
+  status: string;
+  occupation: string;
+  sex?: string;
+  maritalStatus?: string;
+  pincode: string;
+  notes: string;
+  createdAt?: Date;
+};
+
 // Extended schema with validation
 const formSchema = insertContactSchema.extend({
   mobile: z.string().min(10, "Mobile number must be at least 10 digits"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   pincode: z.string().max(10, "Pincode cannot exceed 10 characters").optional().or(z.literal("")),
 });
+
+// Convert the schema to match our ContactFormData type
+type FormSchemaType = z.infer<typeof formSchema>;
 
 type ContactFormProps = {
   isOpen: boolean;
@@ -46,11 +70,32 @@ type ContactFormProps = {
 };
 
 export default function ContactForm({ isOpen, onClose, onSubmit, contact }: ContactFormProps) {
+  // Helper function to convert Contact to ContactFormData
+  const mapContactToFormData = (contact: Contact): ContactFormData => ({
+    id: contact.id,
+    name: contact.name,
+    mobile: contact.mobile,
+    email: contact.email ?? "",
+    area: contact.area,
+    city: contact.city,
+    state: contact.state,
+    nation: contact.nation,
+    priority: contact.priority,
+    category: contact.category,
+    status: contact.status ?? "active",
+    occupation: contact.occupation ?? "",
+    sex: contact.sex ?? undefined,
+    maritalStatus: contact.maritalStatus ?? undefined,
+    pincode: contact.pincode ?? "",
+    notes: contact.notes ?? "",
+    createdAt: contact.createdAt ?? undefined
+  });
+  
   // Initialize form with default values or contact data for editing
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormSchemaType>({
     resolver: zodResolver(formSchema),
-    defaultValues: contact
-      ? { ...contact }
+    defaultValues: contact 
+      ? mapContactToFormData(contact)
       : {
           name: "",
           mobile: "",
@@ -63,8 +108,8 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
           category: "attendee",
           status: "active",
           occupation: "",
-          sex: "",
-          maritalStatus: "",
+          sex: undefined,
+          maritalStatus: undefined,
           pincode: "",
           notes: "",
         },
@@ -269,7 +314,11 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                   <FormItem className="sm:col-span-2">
                     <FormLabel>Occupation</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Job or profession" />
+                      <Input 
+                        {...field} 
+                        value={field.value ?? ""}
+                        placeholder="Job or profession" 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -284,7 +333,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                     <FormLabel>Sex</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value || ""}
+                      defaultValue={field.value || undefined}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -292,7 +341,6 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Select</SelectItem>
                         <SelectItem value="male">Male</SelectItem>
                         <SelectItem value="female">Female</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
@@ -312,7 +360,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                     <FormLabel>Marital Status</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value || ""}
+                      defaultValue={field.value || undefined}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -320,7 +368,6 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Select</SelectItem>
                         <SelectItem value="single">Single</SelectItem>
                         <SelectItem value="married">Married</SelectItem>
                         <SelectItem value="divorced">Divorced</SelectItem>
@@ -394,6 +441,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                     <FormControl>
                       <Textarea 
                         {...field} 
+                        value={field.value ?? ""}
                         placeholder="Any additional notes about this contact"
                         rows={3}
                       />
