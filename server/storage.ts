@@ -4,9 +4,12 @@ import { attendance, type Attendance, type InsertAttendance } from "@shared/sche
 import { followUps, type FollowUp, type InsertFollowUp } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
+import { db } from "./db";
+import { eq, and, ilike, desc, asc, or, sql } from "drizzle-orm";
+import { Pool } from "@neondatabase/serverless";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 // Interface for storage operations
 export interface IStorage {
@@ -52,230 +55,251 @@ export interface IStorage {
   }): Promise<Contact[]>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private contacts: Map<number, Contact>;
-  private events: Map<number, Event>;
-  private attendance: Map<number, Attendance>;
-  private followUps: Map<number, FollowUp>;
-  
-  private userIdCounter: number;
-  private contactIdCounter: number;
-  private eventIdCounter: number;
-  private attendanceIdCounter: number;
-  private followUpIdCounter: number;
-  
-  sessionStore: session.SessionStore;
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.contacts = new Map();
-    this.events = new Map();
-    this.attendance = new Map();
-    this.followUps = new Map();
-    
-    this.userIdCounter = 1;
-    this.contactIdCounter = 1;
-    this.eventIdCounter = 1;
-    this.attendanceIdCounter = 1;
-    this.followUpIdCounter = 1;
-    
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000 // 24 hours
+    // Create the PostgreSQL session store
+    this.sessionStore = new PostgresSessionStore({
+      conObject: { connectionString: process.env.DATABASE_URL },
+      createTableIfMissing: true,
     });
   }
 
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username.toLowerCase() === username.toLowerCase()
-    );
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   // Contact operations
   async getContacts(filters?: Partial<Contact>): Promise<Contact[]> {
-    let contacts = Array.from(this.contacts.values());
+    let query = db.select().from(contacts);
     
     if (filters) {
-      contacts = contacts.filter((contact) => {
-        return Object.entries(filters).every(([key, value]) => {
-          if (value === undefined) return true;
-          return contact[key as keyof Contact] === value;
-        });
-      });
+      const conditions = [];
+      
+      if (filters.status) conditions.push(eq(contacts.status, filters.status));
+      if (filters.category) conditions.push(eq(contacts.category, filters.category));
+      if (filters.priority) conditions.push(eq(contacts.priority, filters.priority));
+      if (filters.city) conditions.push(eq(contacts.city, filters.city));
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
     }
     
-    return contacts;
+    return await query.orderBy(desc(contacts.createdAt));
   }
 
   async getContactById(id: number): Promise<Contact | undefined> {
-    return this.contacts.get(id);
+    const [contact] = await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.id, id));
+    return contact;
   }
 
   async getContactByMobile(mobile: string): Promise<Contact | undefined> {
-    return Array.from(this.contacts.values()).find(
-      (contact) => contact.mobile === mobile
-    );
+    const [contact] = await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.mobile, mobile));
+    return contact;
   }
 
   async createContact(contact: InsertContact): Promise<Contact> {
-    const id = this.contactIdCounter++;
-    const now = new Date();
-    const newContact: Contact = { 
-      ...contact, 
-      id,
-      createdAt: now
-    };
-    this.contacts.set(id, newContact);
+    const [newContact] = await db
+      .insert(contacts)
+      .values(contact)
+      .returning();
     return newContact;
   }
 
   async updateContact(id: number, update: Partial<Contact>): Promise<Contact | undefined> {
-    const contact = this.contacts.get(id);
-    if (!contact) return undefined;
-    
-    const updatedContact: Contact = { ...contact, ...update };
-    this.contacts.set(id, updatedContact);
+    const [updatedContact] = await db
+      .update(contacts)
+      .set(update)
+      .where(eq(contacts.id, id))
+      .returning();
     return updatedContact;
   }
 
   async deleteContact(id: number): Promise<boolean> {
-    return this.contacts.delete(id);
+    const result = await db
+      .delete(contacts)
+      .where(eq(contacts.id, id));
+    return true; // In PostgreSQL, if the deletion fails it will throw an error
   }
 
   // Event operations
   async getEvents(): Promise<Event[]> {
-    return Array.from(this.events.values());
+    return await db
+      .select()
+      .from(events)
+      .orderBy(desc(events.date));
   }
 
   async getEventById(id: number): Promise<Event | undefined> {
-    return this.events.get(id);
+    const [event] = await db
+      .select()
+      .from(events)
+      .where(eq(events.id, id));
+    return event;
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
-    const id = this.eventIdCounter++;
-    const now = new Date();
-    const newEvent: Event = { 
-      ...event, 
-      id,
-      createdAt: now
-    };
-    this.events.set(id, newEvent);
+    const [newEvent] = await db
+      .insert(events)
+      .values(event)
+      .returning();
     return newEvent;
   }
 
   async updateEvent(id: number, update: Partial<Event>): Promise<Event | undefined> {
-    const event = this.events.get(id);
-    if (!event) return undefined;
-    
-    const updatedEvent: Event = { ...event, ...update };
-    this.events.set(id, updatedEvent);
+    const [updatedEvent] = await db
+      .update(events)
+      .set(update)
+      .where(eq(events.id, id))
+      .returning();
     return updatedEvent;
   }
 
   async deleteEvent(id: number): Promise<boolean> {
-    return this.events.delete(id);
+    const result = await db
+      .delete(events)
+      .where(eq(events.id, id));
+    return true; // In PostgreSQL, if the deletion fails it will throw an error
   }
 
   // Attendance operations
   async getAttendanceByEventId(eventId: number): Promise<(Attendance & { contact: Contact })[]> {
-    const attendances = Array.from(this.attendance.values())
-      .filter(a => a.eventId === eventId);
+    const attendanceRecords = await db
+      .select({
+        id: attendance.id,
+        eventId: attendance.eventId,
+        contactId: attendance.contactId,
+        createdAt: attendance.createdAt,
+        contact: contacts
+      })
+      .from(attendance)
+      .where(eq(attendance.eventId, eventId))
+      .innerJoin(contacts, eq(attendance.contactId, contacts.id));
     
-    return attendances.map(attendance => {
-      const contact = this.contacts.get(attendance.contactId);
-      if (!contact) throw new Error(`Contact not found for attendance: ${attendance.id}`);
-      return { ...attendance, contact };
-    });
+    return attendanceRecords;
   }
 
   async getAttendanceByContactId(contactId: number): Promise<(Attendance & { event: Event })[]> {
-    const attendances = Array.from(this.attendance.values())
-      .filter(a => a.contactId === contactId);
+    const attendanceRecords = await db
+      .select({
+        id: attendance.id,
+        eventId: attendance.eventId,
+        contactId: attendance.contactId,
+        createdAt: attendance.createdAt,
+        event: events
+      })
+      .from(attendance)
+      .where(eq(attendance.contactId, contactId))
+      .innerJoin(events, eq(attendance.eventId, events.id));
     
-    return attendances.map(attendance => {
-      const event = this.events.get(attendance.eventId);
-      if (!event) throw new Error(`Event not found for attendance: ${attendance.id}`);
-      return { ...attendance, event };
-    });
+    return attendanceRecords;
   }
 
   async createAttendance(attendanceData: InsertAttendance): Promise<Attendance> {
-    // Check if attendance already exists to prevent duplicates
-    const exists = Array.from(this.attendance.values()).find(
-      a => a.contactId === attendanceData.contactId && a.eventId === attendanceData.eventId
-    );
-    
-    if (exists) return exists;
-    
-    const id = this.attendanceIdCounter++;
-    const now = new Date();
-    const attendance: Attendance = { 
-      ...attendanceData, 
-      id,
-      createdAt: now
-    };
-    this.attendance.set(id, attendance);
-    return attendance;
+    try {
+      const [newAttendance] = await db
+        .insert(attendance)
+        .values(attendanceData)
+        .returning();
+      return newAttendance;
+    } catch (error) {
+      // If the attendance already exists (unique constraint violation), fetch and return it
+      const [existingAttendance] = await db
+        .select()
+        .from(attendance)
+        .where(
+          and(
+            eq(attendance.contactId, attendanceData.contactId),
+            eq(attendance.eventId, attendanceData.eventId)
+          )
+        );
+      
+      if (existingAttendance) {
+        return existingAttendance;
+      }
+      
+      throw error;
+    }
   }
 
   // Follow-up operations
   async getFollowUpsByContactId(contactId: number): Promise<FollowUp[]> {
-    return Array.from(this.followUps.values())
-      .filter(f => f.contactId === contactId);
+    return await db
+      .select()
+      .from(followUps)
+      .where(eq(followUps.contactId, contactId))
+      .orderBy(desc(followUps.createdAt));
   }
 
   async createFollowUp(followUp: InsertFollowUp): Promise<FollowUp> {
-    const id = this.followUpIdCounter++;
-    const now = new Date();
-    const newFollowUp: FollowUp = { 
-      ...followUp, 
-      id,
-      createdAt: now
-    };
-    this.followUps.set(id, newFollowUp);
+    const [newFollowUp] = await db
+      .insert(followUps)
+      .values(followUp)
+      .returning();
     return newFollowUp;
   }
 
   async updateFollowUp(id: number, update: Partial<FollowUp>): Promise<FollowUp | undefined> {
-    const followUp = this.followUps.get(id);
-    if (!followUp) return undefined;
-    
-    const updatedFollowUp: FollowUp = { ...followUp, ...update };
-    this.followUps.set(id, updatedFollowUp);
+    const [updatedFollowUp] = await db
+      .update(followUps)
+      .set(update)
+      .where(eq(followUps.id, id))
+      .returning();
     return updatedFollowUp;
   }
 
   async deleteFollowUp(id: number): Promise<boolean> {
-    return this.followUps.delete(id);
+    const result = await db
+      .delete(followUps)
+      .where(eq(followUps.id, id));
+    return true; // In PostgreSQL, if the deletion fails it will throw an error
   }
 
   // Search and filter
   async searchContacts(query: string): Promise<Contact[]> {
-    if (!query) return this.getContacts();
+    if (!query) {
+      return await this.getContacts();
+    }
     
-    const lowerQuery = query.toLowerCase();
-    return Array.from(this.contacts.values()).filter(contact => 
-      contact.name.toLowerCase().includes(lowerQuery) ||
-      contact.mobile.includes(lowerQuery) || 
-      (contact.email && contact.email.toLowerCase().includes(lowerQuery)) ||
-      contact.city.toLowerCase().includes(lowerQuery) ||
-      contact.area.toLowerCase().includes(lowerQuery)
-    );
+    return await db
+      .select()
+      .from(contacts)
+      .where(
+        or(
+          ilike(contacts.name, `%${query}%`),
+          ilike(contacts.mobile, `%${query}%`),
+          ilike(contacts.email, `%${query}%`),
+          ilike(contacts.city, `%${query}%`),
+          ilike(contacts.area, `%${query}%`)
+        )
+      )
+      .orderBy(desc(contacts.createdAt));
   }
 
   async filterContacts(filters: {
@@ -285,34 +309,44 @@ export class MemStorage implements IStorage {
     eventId?: number;
     status?: string;
   }): Promise<Contact[]> {
-    let contacts = Array.from(this.contacts.values());
-    
-    if (filters.category) {
-      contacts = contacts.filter(c => c.category === filters.category);
-    }
-    
-    if (filters.priority) {
-      contacts = contacts.filter(c => c.priority === filters.priority);
-    }
-    
-    if (filters.city) {
-      contacts = contacts.filter(c => c.city.toLowerCase() === filters.city.toLowerCase());
-    }
-    
-    if (filters.status) {
-      contacts = contacts.filter(c => c.status === filters.status);
-    }
-    
     if (filters.eventId) {
-      const eventAttendees = Array.from(this.attendance.values())
-        .filter(a => a.eventId === filters.eventId)
-        .map(a => a.contactId);
+      // Special case for filtering by event attendance
+      const attendees = await db
+        .select({
+          contact: contacts
+        })
+        .from(attendance)
+        .where(eq(attendance.eventId, filters.eventId))
+        .innerJoin(contacts, eq(attendance.contactId, contacts.id));
+
+      const attendeeContacts = attendees.map(a => a.contact);
       
-      contacts = contacts.filter(c => eventAttendees.includes(c.id));
+      // Apply any additional filters
+      return attendeeContacts.filter(contact => {
+        let match = true;
+        if (filters.category) match = match && contact.category === filters.category;
+        if (filters.priority) match = match && contact.priority === filters.priority;
+        if (filters.city) match = match && contact.city.toLowerCase() === filters.city.toLowerCase();
+        if (filters.status) match = match && contact.status === filters.status;
+        return match;
+      });
+    } else {
+      // Regular filtering without event attendance
+      let query = db.select().from(contacts);
+      const conditions = [];
+      
+      if (filters.category) conditions.push(eq(contacts.category, filters.category));
+      if (filters.priority) conditions.push(eq(contacts.priority, filters.priority));
+      if (filters.city) conditions.push(ilike(contacts.city, filters.city));
+      if (filters.status) conditions.push(eq(contacts.status, filters.status));
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      return await query.orderBy(desc(contacts.createdAt));
     }
-    
-    return contacts;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
