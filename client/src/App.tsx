@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
@@ -7,12 +7,29 @@ import ContactsPage from "@/pages/contacts-page";
 import ContactDetailPage from "@/pages/contact-detail-page";
 import EventsPage from "@/pages/events-page";
 import { ProtectedRoute } from "./lib/protected-route";
-import { AuthProvider } from "./hooks/use-auth";
+import { AuthProvider, useAuth } from "./hooks/use-auth";
+import { useEffect } from "react";
+
+// Route wrapper component that redirects already authenticated users from auth page
+function AuthRouteWrapper() {
+  const { user, isLoading } = useAuth();
+  const [, navigate] = useLocation();
+  
+  useEffect(() => {
+    // If user is already authenticated and tries to access auth page, redirect to dashboard
+    if (user && !isLoading) {
+      console.log("User already authenticated, redirecting to dashboard");
+      navigate("/");
+    }
+  }, [user, isLoading, navigate]);
+  
+  return <AuthPage />;
+}
 
 function Router() {
   return (
     <Switch>
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/auth" component={AuthRouteWrapper} />
       <Route path="/">
         {() => <ProtectedRoute component={DashboardPage} />}
       </Route>
@@ -31,6 +48,12 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+  
+  useEffect(() => {
+    console.log("App - Current route:", location);
+  }, [location]);
+  
   return (
     <AuthProvider>
       <Router />

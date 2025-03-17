@@ -54,26 +54,48 @@ export default function AuthPage() {
     },
   });
 
+  // Check if we're already authenticated
+  useEffect(() => {
+    if (user) {
+      console.log("AuthPage: User already authenticated, redirecting to home");
+      navigate("/");
+    }
+  }, [user, navigate]);
+
   // Handle login
   const onLogin = async (values: z.infer<typeof loginSchema>) => {
     try {
-      await loginMutation.mutateAsync(values);
-      console.log("Login successful, redirecting to home page");
-      navigate("/");
+      console.log("AuthPage: Attempting login with username:", values.username);
+      const result = await loginMutation.mutateAsync(values);
+      console.log("AuthPage: Login successful, user data:", result);
+      
+      // Short delay before redirecting to ensure session is properly established
+      setTimeout(() => {
+        console.log("AuthPage: Redirecting to home page after login");
+        navigate("/");
+      }, 300);
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error("AuthPage: Login failed:", error);
+      // Form should display error via the toast
     }
   };
 
   // Handle registration
   const onRegister = async (values: z.infer<typeof registerSchema>) => {
     try {
+      console.log("AuthPage: Attempting registration with username:", values.username);
       const { confirmPassword, ...userData } = values;
-      await registerMutation.mutateAsync(userData);
-      console.log("Registration successful, redirecting to home page");
-      navigate("/");
+      const result = await registerMutation.mutateAsync(userData);
+      console.log("AuthPage: Registration successful, user data:", result);
+      
+      // Short delay before redirecting to ensure session is properly established
+      setTimeout(() => {
+        console.log("AuthPage: Redirecting to home page after registration");
+        navigate("/");
+      }, 300);
     } catch (error) {
-      console.error("Registration failed:", error);
+      console.error("AuthPage: Registration failed:", error);
+      // Form should display error via the toast
     }
   };
 

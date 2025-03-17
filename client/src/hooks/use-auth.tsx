@@ -27,12 +27,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     isLoading,
     refetch,
+    isFetching,
   } = useQuery<SelectUser | null>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    staleTime: 0, // Ensure we always fetch fresh data
+    staleTime: 30 * 1000, // Consider data stale after 30 seconds
     refetchOnWindowFocus: true, // Refresh on window focus
     refetchOnMount: true, // Always refetch on mount
+    retryOnMount: true, // Retry on mount if failed
+    retry: 2, // Retry up to 2 times
+    gcTime: 5 * 60 * 1000, // Keep data in cache for 5 minutes
+  });
+  
+  // Debug authentication state
+  console.log("Auth state:", { 
+    isAuthenticated: !!user, 
+    username: user?.username, 
+    isLoading,
+    isFetching,
+    hasError: !!error
   });
 
   const loginMutation = useMutation({
