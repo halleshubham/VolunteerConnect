@@ -5,7 +5,7 @@ A modern web application for managing events and attendees built with React, Exp
 
 ![Tech Stack](https://skillicons.dev/icons?i=ts,react,express,tailwind,vite)
 
-![image](https://github.com/user-attachments/assets/3f4e8282-c58e-41f3-90c6-659f7e20e5f7)
+![Screenshare-2025-03-184_07_32PM-ezgif com-crop](https://github.com/user-attachments/assets/c5a084dd-d2e5-45cb-8b85-a77dac407979)
 
 
 ## ✨ Features
