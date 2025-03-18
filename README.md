@@ -16,10 +16,19 @@ A modern web application for managing events and attendees built with React, Exp
 
 ## 🚀 Quick Start
 
-1. Clone this Repl and click the Run button
-2. Open the app in your browser
-3. Register a new account or login
-4. Start managing your events!
+Clone this Repo & For local development setup:
+1. Setup a local postgresql db instance.
+2. Update .env file accordingly
+
+```env
+DATABASE_URL=<local_postgresql_db>
+SESSION_SECRET=<your_session_secret>
+```
+3. Run
+```
+npm install
+npm run dev
+```
 
 ## 🛠️ Tech Stack
 
