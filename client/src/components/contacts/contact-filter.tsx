@@ -125,7 +125,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 <SelectValue placeholder="All Priorities" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Priorities</SelectItem>
+                <SelectItem value="all">All Priorities</SelectItem>
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
@@ -143,7 +143,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 <SelectValue placeholder="All Locations" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Locations</SelectItem>
+                <SelectItem value="all">All Locations</SelectItem>
                 <SelectItem value="mumbai">Mumbai</SelectItem>
                 <SelectItem value="delhi">Delhi</SelectItem>
                 <SelectItem value="bangalore">Bangalore</SelectItem>
@@ -162,7 +162,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 <SelectValue placeholder="All Events" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Events</SelectItem>
+                <SelectItem value="all">All Events</SelectItem>
                 {events.map((event) => (
                   <SelectItem key={event.id} value={event.id.toString()}>
                     {event.name}
@@ -182,7 +182,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="follow-up">Follow-up</SelectItem>

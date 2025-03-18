@@ -10,7 +10,7 @@ import {
   Contact 
 } from "@shared/schema";
 import { z } from "zod";
-import * as ExcelJS from "exceljs";
+import ExcelJS from 'exceljs';
 
 // Middleware to check if user is authenticated
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
@@ -229,6 +229,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // === EVENTS ROUTES ===
+  // Get sample Excel template
+  app.get("/api/events/sample-template", (_req, res) => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Event Registration');
+
+    // Add headers
+    worksheet.columns = [
+      { header: 'Name', key: 'name', width: 30 },
+      { header: 'Mobile', key: 'mobile', width: 15 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Area', key: 'area', width: 20 },
+      { header: 'City', key: 'city', width: 20 },
+      { header: 'State', key: 'state', width: 20 },
+      { header: 'Nation', key: 'nation', width: 20 },
+      { header: 'Pincode', key: 'pincode', width: 10 }
+    ];
+
+    // Add a sample row
+    worksheet.addRow({
+      name: 'John Doe',
+      mobile: '9876543210',
+      email: 'john@example.com',
+      area: 'Downtown',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      nation: 'India',
+      pincode: '400001'
+    });
+
+    // Set content type and headers for Excel file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=event-registration-template.xlsx');
+
+    // Write to response
+    workbook.xlsx.write(res).then(() => {
+      res.end();
+    });
+  });
   
   // Get all events
   app.get("/api/events", isAuthenticated, async (req, res, next) => {
@@ -401,20 +439,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (rowNumber === 1) return; // Skip header row
         
         try {
-          const mobile = row.getCell('Mobile').text?.trim();
-          if (!mobile) {
-            result.errors.push(`Row ${rowNumber}: Mobile number is required`);
-            return;
-          }
-          
-          const name = row.getCell('Name').text?.trim();
-          if (!name) {
-            result.errors.push(`Row ${rowNumber}: Name is required`);
-            return;
-          }
-          
-          // Check if contact exists
-          let contact = await storage.getContactByMobile(mobile);
+              const mobile = row.getCell(2).text?.trim(); // Mobile column
+              if (!mobile) {
+                result.errors.push(`Row ${rowNumber}: Mobile number is required`);
+                return;
+              }
+              
+              const name = row.getCell(1).text?.trim(); // Name column
+              if (!name) {
+                result.errors.push(`Row ${rowNumber}: Name is required`);
+                return;
+              }
+              
+              // Check if contact exists
+              let contact = await storage.getContactByMobile(mobile);
           
           if (contact) {
             // Update existing contact with any new info
@@ -444,12 +482,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             result.updated++;
           } else {
             // Create new contact
-            const email = row.getCell('Email').text?.trim();
-            const area = row.getCell('Area').text?.trim() || 'Unknown';
-            const city = row.getCell('City').text?.trim() || 'Unknown';
-            const state = row.getCell('State').text?.trim() || 'Unknown';
-            const nation = row.getCell('Nation').text?.trim() || 'India';
-            const pincode = row.getCell('Pincode').text?.trim();
+            const email = row.getCell(3).text?.trim();
+            const area = row.getCell(4).text?.trim() || 'Unknown';
+            const city = row.getCell(5).text?.trim() || 'Unknown';
+            const state = row.getCell(6).text?.trim() || 'Unknown';
+            const nation = row.getCell(7).text?.trim() || 'India';
+            const pincode = row.getCell(8).text?.trim();
             
             contact = await storage.createContact({
               name,

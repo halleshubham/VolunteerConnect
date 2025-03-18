@@ -197,7 +197,7 @@ export default function ContactDetailModal({
                           <li key={attendance.id}>
                             <div className="px-4 py-4 flex items-center sm:px-6">
                               <div className="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
-                                <div>
+                                {attendanceData.event && <div>
                                   <div className="flex text-sm">
                                     <p className="font-medium text-primary truncate">{attendance.event.name}</p>
                                     <p className="ml-1 flex-shrink-0 font-normal text-gray-500">
@@ -210,7 +210,7 @@ export default function ContactDetailModal({
                                       <p>{attendance.event.location}</p>
                                     </div>
                                   </div>
-                                </div>
+                                </div>}
                                 <div className="mt-4 flex-shrink-0 sm:mt-0">
                                   <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
                                     Attended

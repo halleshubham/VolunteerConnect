@@ -8,6 +8,8 @@ import connectPg from "connect-pg-simple";
 import { db } from "./db";
 import { eq, and, ilike, desc, asc, or, sql } from "drizzle-orm";
 import { Pool } from "@neondatabase/serverless";
+import dotenv from 'dotenv';
+dotenv.config();
 
 const PostgresSessionStore = connectPg(session);
 
@@ -64,7 +66,7 @@ export class DatabaseStorage implements IStorage {
   constructor() {
     // Create the PostgreSQL session store
     this.sessionStore = new PostgresSessionStore({
-      conObject: { connectionString: process.env.DATABASE_URL },
+      conObject: { connectionString: "postgresql://postgres:@localhost:5432/volunteerconnect" },
       createTableIfMissing: true,
     });
   }

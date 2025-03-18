@@ -267,6 +267,16 @@ export default function EventImportModal({ isOpen, onClose, events }: EventImpor
                       <p className="text-xs text-gray-500">
                         Excel files only (.xlsx, .xls)
                       </p>
+                      <div className="mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open('/api/events/sample-template', '_blank')}
+                        >
+                          Download Sample Template
+                        </Button>
+                      </div>
                     </>
                   )}
                 </div>
