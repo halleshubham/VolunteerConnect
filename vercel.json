@@ -1,18 +1,29 @@
 {
-    "version": 2,
-    "builds": [
-      {
-        "src": "dist/index.js", 
-        "use": "@vercel/node"
-      },
-      {
-        "src": "client/package.json",
-        "use": "@vercel/static-build",
-        "config": { "distDir": "dist/public" }
-      }
-    ],
-    "routes": [
-      { "src": "/api/(.*)", "dest": "dist/index.js" },
-      { "src": "/(.*)", "dest": "dist/public" }
+"version": 2,
+"buildCommand": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+"outputDirectory": "dist",
+"functions": {
+  "dist/index.js": {
+    "memory": 1024,
+    "maxDuration": 10
+  }
+},
+"rewrites": [
+  { "source": "/api/(.*)", "destination": "/dist/index.js" },
+  { "source": "/(.*)", "destination": "/dist/$1" }
+],
+"headers": [
+  {
+    "source": "/(.*)",
+    "headers": [
+      { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+    ]
+  },
+  {
+    "source": "/assets/(.*)",
+    "headers": [
+      { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
     ]
   }
+]
+}
