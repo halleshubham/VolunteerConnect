@@ -58,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all contacts with optional filtering
   app.get("/api/contacts", isAuthenticated, async (req, res, next) => {
     try {
-      const { search, category, priority, city, event, status, occupation } = req.query;
+      const { search, category, priority, city, event, status, occupation, assignedTo } = req.query;
 
       // Handle search query
       if (search && typeof search === 'string') {
@@ -67,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Handle filters
-      if (category || priority || city || event || status || occupation) {
+      if (category || priority || city || event || status || occupation || assignedTo) {
         const filters: any = {};
         
         if (category) filters.category = category;
@@ -76,6 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (status) filters.status = status;
         if (occupation) filters.occupation = occupation;
         if (event) filters.eventId = parseInt(event as string);
+        if (assignedTo) filters.assignedTo = assignedTo;
         
         const contacts = await storage.filterContacts(filters);
         return res.json(contacts);
@@ -254,7 +255,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       { header: 'City', key: 'city', width: 20 },
       { header: 'State', key: 'state', width: 20 },
       { header: 'Nation', key: 'nation', width: 20 },
-      { header: 'Pincode', key: 'pincode', width: 10 }
+      { header: 'Pincode', key: 'pincode', width: 10 },
+      { header: 'Occupation', key: 'occupation', width: 10 },
+      { header: 'Priority', key: 'priority', width: 10 },
+      { header: 'Category', key: 'category', width: 10 },
+      { header: 'Status', key: 'status', width: 10 },
+      { header: 'CurrentStatus', key: 'currentstatus', width: 30 },
+      { header: 'AssignedTo1', key: 'assignedTo1', width: 20 },
+      { header: 'AssignedTo2', key: 'assignedTo2', width: 20 },
     ];
 
     // Add a sample row
@@ -266,7 +274,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       city: 'Mumbai',
       state: 'Maharashtra',
       nation: 'India',
-      pincode: '400001'
+      pincode: '400001',
+      priority: 'high',
+      category: 'volunteer',
+      status: 'active',
+      currentstatus: 'feedback note here',
+      assignedTo1: 'Name1',
+      assignedTo2: 'Name2'
     });
 
     // Set content type and headers for Excel file download
@@ -463,33 +477,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               // Check if contact exists
-              let contact = await storage.getContactByMobile(mobile);
+              var contact = await storage.getContactByMobile(mobile);
           
           if (contact) {
             // Update existing contact with any new info
             const updateData: any = {};
             
             // Only update if the fields are provided and empty in the DB
-            const email = row.getCell('Email').text?.trim();
-            if (email && !contact.email) updateData.email = email;
+            // const email = row.getCell('Email').text?.trim();
+            // if (email && !contact.email) updateData.email = email;
             
-            const area = row.getCell('Area').text?.trim();
-            if (area && !contact.area) updateData.area = area;
+            // const area = row.getCell('Area').text?.trim();
+            // if (area && !contact.area) updateData.area = area;
             
-            const city = row.getCell('City').text?.trim();
-            if (city && !contact.city) updateData.city = city;
+            // const city = row.getCell('City').text?.trim();
+            // if (city && !contact.city) updateData.city = city;
             
-            const state = row.getCell('State').text?.trim();
-            if (state && !contact.state) updateData.state = state;
+            // const state = row.getCell('State').text?.trim();
+            // if (state && !contact.state) updateData.state = state;
             
-            const pincode = row.getCell('Pincode').text?.trim();
-            if (pincode && !contact.pincode) updateData.pincode = pincode;
-            
+            const occupation = row.getCell(9).text?.trim();
+            if (occupation) updateData.occupation = occupation.toLowerCase();
+
+            const priority = row.getCell(10).text?.trim().toLowerCase();
+            if (priority) updateData.priority = priority.toLowerCase();
+            const category = row.getCell(11).text?.trim().toLowerCase();
+            if (category) updateData.category = category.toLowerCase();
+            const status = row.getCell(12).text?.trim().toLowerCase();
+            if (status) updateData.status = status.toLowerCase();
+
+            const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
+            if(assignedTo) updateData.assignedTo = assignedTo;
+
             // Update if there are changes
             if (Object.keys(updateData).length > 0) {
               contact = await storage.updateContact(contact.id, updateData) as any;
             }
-            
+
             result.updated++;
           } else {
             // Create new contact
@@ -499,6 +523,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const state = row.getCell(6).text?.trim() || 'Unknown';
             const nation = row.getCell(7).text?.trim() || 'India';
             const pincode = row.getCell(8).text?.trim();
+            const occupation = row.getCell(9).text?.trim();
+            const priority = row.getCell(10).text?.trim();
+            const category = row.getCell(11).text?.trim();
+            const status = row.getCell(12).text?.trim();
+            const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
             
             contact = await storage.createContact({
               name,
@@ -509,23 +538,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
               state,
               nation,
               pincode,
-              priority: 'medium', // Default values
-              category: 'attendee',
-              status: 'active'
+              occupation,
+              priority, // Default values
+              category,
+              status,
+              assignedTo
             });
             
             result.created++;
           }
           
+          const note = row.getCell(13).text?.trim();
           // Add attendance record for the event if contact exists
-          if (contact) {
+          if (contact && note) {
             await storage.createAttendance({
               contactId: contact.id,
               eventId: parseInt(eventId)
             });
+
+            //add followup status
+            const followUpStatus = {
+              contactId: contact.id,
+              notes: note,
+              status: "completed", // pending, completed, cancelled
+              dueDate: new Date(),
+              completedDate: new Date(),
+            };
+            await storage.createFollowUp(followUpStatus)
           }
           
         } catch (error) {
+          console.error(error)
           result.errors.push(`Row ${rowNumber}: ${(error as Error).message}`);
         }
       });

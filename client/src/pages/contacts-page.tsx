@@ -26,7 +26,8 @@ export default function ContactsPage() {
     location: "",
     eventId: "",
     status: "",
-    occupation: ""
+    occupation: "",
+    assignedTo: ""
   });
 
   // Fetch contacts with filters
@@ -45,6 +46,7 @@ export default function ContactsPage() {
       if (filtersObj.eventId) params.append("event", filtersObj.eventId);
       if (filtersObj.status) params.append("status", filtersObj.status);
       if (filtersObj.occupation) params.append("occupation", filtersObj.occupation);
+      if (filtersObj.assignedTo) params.append("assignedTo", filtersObj.assignedTo);
       
       const url = `/api/contacts${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await fetch(url, { credentials: "include" });

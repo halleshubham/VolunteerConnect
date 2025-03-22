@@ -14,7 +14,8 @@ export type FilterValues = {
   location: string;
   eventId: string;
   status: string;
-  occupation: string
+  occupation: string,
+  assignedTo: string
 };
 
 type ContactFilterProps = {
@@ -29,7 +30,8 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
     location: "",
     eventId: "",
     status: "",
-    occupation: ""
+    occupation: "",
+    assignedTo: ""
   });
 
   // Fetch events for the event filter dropdown
@@ -73,7 +75,8 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
       location: "",
       eventId: "",
       status: "",
-      occupation: ""
+      occupation: "",
+      assignedTo: ""
     });
     onFilterChange({
       search: "",
@@ -82,7 +85,8 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
       location: "",
       eventId: "",
       status: "",
-      occupation:""
+      occupation:"",
+      assignedTo: ""
     });
   };
 
@@ -103,6 +107,23 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 className="pl-10"
                 placeholder="Search contacts..."
                 value={filters.search}
+                onChange={handleInputChange}
+              />
+            </div>
+          </div>
+          <div className="md:col-span-1">
+            <Label htmlFor="assignedTo">Assigned To</Label>
+            <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <Input
+                type="text"
+                name="assignedTo"
+                id="assignedTo"
+                className="pl-10"
+                placeholder="Search Assignment..."
+                value={filters.assignedTo}
                 onChange={handleInputChange}
               />
             </div>

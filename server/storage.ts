@@ -319,6 +319,7 @@ export class DatabaseStorage implements IStorage {
     eventId?: number;
     status?: string;
     occupation?: string;
+    assignedTo?:string
   }): Promise<Contact[]> {
     if (filters.eventId) {
       // Special case for filtering by event attendance
@@ -351,6 +352,13 @@ export class DatabaseStorage implements IStorage {
       if (filters.city) conditions.push(ilike(contacts.city, filters.city));
       if (filters.status) conditions.push(eq(contacts.status, filters.status));
       if (filters.occupation) conditions.push(eq(contacts.occupation, filters.occupation));
+      if (filters.assignedTo) conditions.push(sql`
+        EXISTS (
+          SELECT 1 FROM unnest(${contacts.assignedTo}) AS assignment
+          WHERE assignment ILIKE ${'%' + filters.assignedTo + '%'}
+        )
+      `);
+
       
       if (conditions.length > 0) {
         query = query.where(and(...conditions));

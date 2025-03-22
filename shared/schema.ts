@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, unique, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, unique, date, PgArray } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -36,6 +36,7 @@ export const contacts = pgTable("contacts", {
   status: text("status").default("active"), // active, inactive, follow-up
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
+  assignedTo: text("assignedTo").array()
 });
 
 export const insertContactSchema = createInsertSchema(contacts).omit({
