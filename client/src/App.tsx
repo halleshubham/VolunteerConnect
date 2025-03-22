@@ -9,6 +9,8 @@ import EventsPage from "@/pages/events-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
 import { useEffect } from "react";
+import EventAttendancePage from "./pages/event-attendance-page";
+import SettingsPage from "./pages/settings-page";
 
 // Route wrapper component that redirects already authenticated users from auth page
 function AuthRouteWrapper() {
@@ -41,6 +43,12 @@ function Router() {
       </Route>
       <Route path="/events">
         {() => <ProtectedRoute component={EventsPage} />}
+      </Route>
+      <Route path="/events/:id/attendance">
+        {() => <ProtectedRoute component={EventAttendancePage} />}
+      </Route>
+      <Route path="/settings">
+        {() => <ProtectedRoute component={SettingsPage} />}
       </Route>
       <Route path="*" component={NotFound} />
     </Switch>

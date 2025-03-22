@@ -193,9 +193,11 @@ export default function ContactTable({ contacts, onView, onEdit }: ContactTableP
                       {getStatusBadge(contact.status || 'active')}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="link" className="text-primary" onClick={() => onView(contact)}>
-                        View
-                      </Button>
+                      <Link href={`/contacts/${contact.id}`}>
+                          <Button variant="link" className="text-primary">
+                            View
+                          </Button>
+                        </Link>
                       <Button variant="link" className="text-gray-600" onClick={() => onEdit(contact)}>
                         Edit
                       </Button>

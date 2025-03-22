@@ -125,20 +125,15 @@ export default function EventTable({ events, onEdit }: EventTableProps) {
                       </p>
                     </TableCell>
                     <TableCell className="text-right">
+                      <a href={`/events/${event.id}/attendance`}>
                       <Button 
                         variant="ghost" 
                         className="text-primary hover:text-primary/80" 
-                        onClick={() => {
-                          // View attendees
-                          toast({
-                            title: "Coming Soon",
-                            description: "View attendees functionality coming soon.",
-                          });
-                        }}
                       >
                         <Users className="h-4 w-4 mr-1" />
                         Attendees
                       </Button>
+                      </a>
                       <Button 
                         variant="ghost" 
                         className="text-gray-600 hover:text-gray-900" 

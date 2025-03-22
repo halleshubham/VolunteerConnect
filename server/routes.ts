@@ -45,11 +45,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // === CONTACTS ROUTES ===
   
+  // Get unique cities from contacts
+  app.get("/api/contacts/cities", isAuthenticated, async (_req, res, next) => {
+    try {
+      const cities = await storage.getUniqueCities();
+      res.json(cities);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Get all contacts with optional filtering
   app.get("/api/contacts", isAuthenticated, async (req, res, next) => {
     try {
-      const { search, category, priority, city, event, status } = req.query;
-      
+      const { search, category, priority, city, event, status, occupation } = req.query;
+
       // Handle search query
       if (search && typeof search === 'string') {
         const contacts = await storage.searchContacts(search);
@@ -57,13 +67,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Handle filters
-      if (category || priority || city || event || status) {
+      if (category || priority || city || event || status || occupation) {
         const filters: any = {};
         
         if (category) filters.category = category;
         if (priority) filters.priority = priority;
         if (city) filters.city = city;
         if (status) filters.status = status;
+        if (occupation) filters.occupation = occupation;
         if (event) filters.eventId = parseInt(event as string);
         
         const contacts = await storage.filterContacts(filters);

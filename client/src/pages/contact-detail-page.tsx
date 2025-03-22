@@ -337,40 +337,37 @@ export default function ContactDetailPage() {
                     </TabsList>
                     
                     <TabsContent value="events" className="p-4 pt-6">
-                      <div className="flex justify-between items-center mb-4">
+                    <div className="space-y-4">
                         <h3 className="text-lg font-medium">Event Attendance</h3>
+                        {isAttendanceLoading ? (
+                          <div className="text-center py-4">Loading...</div>
+                        ) : attendance?.length > 0 ? (
+                          <div className="space-y-4">
+                            {attendance.map((record) => (
+                              <Card key={record.id}>
+                                <CardContent className="p-4">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <h4 className="font-medium">{record.event.name}</h4>
+                                      <p className="text-sm text-gray-500">
+                                        {new Date(record.event.date).toLocaleDateString()}
+                                      </p>
+                                      <p className="text-sm text-gray-600 mt-1">
+                                        {record.event.location}
+                                      </p>
+                                    </div>
+                                    <Badge>Attended</Badge>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-gray-500">
+                            No events attended
+                          </div>
+                        )}
                       </div>
-                      
-                      {isAttendanceLoading ? (
-                        <div className="flex justify-center py-8">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                      ) : attendance.length > 0 ? (
-                        <div className="space-y-4">
-                          {attendance.map((item) => (
-                            <div key={item.id} className="bg-white border border-gray-200 rounded-md p-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h4 className="font-medium text-primary">{item.event.name}</h4>
-                                  <p className="text-sm text-gray-500">
-                                    {new Date(item.event.date).toLocaleDateString()} at {item.event.location}
-                                  </p>
-                                </div>
-                                <Badge className="bg-green-100 text-green-800">
-                                  Attended
-                                </Badge>
-                              </div>
-                              {item.event.description && (
-                                <p className="mt-2 text-sm text-gray-600">{item.event.description}</p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          No event attendance records found
-                        </div>
-                      )}
                     </TabsContent>
                     
                     <TabsContent value="followups" className="p-4 pt-6">
@@ -382,50 +379,37 @@ export default function ContactDetailPage() {
                         </Button>
                       </div>
                       
+                                            
                       {isFollowUpsLoading ? (
-                        <div className="flex justify-center py-8">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                      ) : followUps.length > 0 ? (
+                        <div className="text-center py-4">Loading...</div>
+                      ) : followUps?.length > 0 ? (
                         <div className="space-y-4">
                           {followUps.map((followUp) => (
-                            <div key={followUp.id} className="bg-white border border-gray-200 rounded-md p-4">
-                              <div className="flex items-center justify-between">
-                                <p className="font-medium">{followUp.notes}</p>
-                                <Badge 
-                                  className={`
-                                    ${followUp.status === 'completed' 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : followUp.status === 'cancelled' 
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-yellow-100 text-yellow-800'
-                                    } 
-                                    capitalize
-                                  `}
-                                >
-                                  {followUp.status}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center mt-2 text-sm text-gray-500">
-                                <Calendar className="h-4 w-4 mr-1" />
-                                <span>
-                                  Due: {followUp.dueDate ? new Date(followUp.dueDate).toLocaleDateString() : 'Not set'}
-                                </span>
-                                {followUp.completedDate && (
-                                  <>
-                                    <span className="mx-2">•</span>
-                                    <span>
-                                      Completed: {new Date(followUp.completedDate).toLocaleDateString()}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
+                            <Card key={followUp.id}>
+                              <CardContent className="p-4">
+                                <div className="flex justify-between items-start">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Badge>{followUp.status}</Badge>
+                                      <span className="text-sm text-gray-500">
+                                        {new Date(followUp.createdAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                    <p className="text-gray-700 whitespace-pre-line">{followUp.notes}</p>
+                                    {followUp.dueDate && (
+                                      <p className="text-sm text-gray-500">
+                                        Due: {new Date(followUp.dueDate).toLocaleDateString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          No follow-up records found
+                        <div className="text-center py-4 text-gray-500">
+                          No follow-up records
                         </div>
                       )}
                     </TabsContent>

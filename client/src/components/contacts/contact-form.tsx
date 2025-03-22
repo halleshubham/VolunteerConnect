@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X } from "lucide-react";
+import { useEffect } from "react";
 
 // Create a contact form type that handles all the field types correctly
 type ContactFormData = {
@@ -92,28 +93,44 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
   });
   
   // Initialize form with default values or contact data for editing
+    // Initialize form with default values or contact data for editing
   const form = useForm<FormSchemaType>({
     resolver: zodResolver(formSchema),
-    defaultValues: contact 
-      ? mapContactToFormData(contact)
-      : {
-          name: "",
-          mobile: "",
-          email: "",
-          area: "",
-          city: "",
-          state: "",
-          nation: "India",
-          priority: "medium",
-          category: "attendee",
-          status: "active",
-          occupation: "",
-          sex: undefined,
-          maritalStatus: undefined,
-          pincode: "",
-          notes: "",
-        },
+    defaultValues: {
+      name: contact?.name || "",
+      mobile: contact?.mobile || "",
+      email: contact?.email || "",
+      area: contact?.area || "",
+      city: contact?.city || "",
+      state: contact?.state || "",
+      nation: contact?.nation || "India",
+      pincode: contact?.pincode || "",
+      category: contact?.category || "attendee",
+      priority: contact?.priority || "medium",
+      status: contact?.status || "active",
+      notes: contact?.notes || "",
+    },
   });
+
+  // Reset form when contact changes
+  useEffect(() => {
+    if (contact) {
+      form.reset({
+        name: contact.name,
+        mobile: contact.mobile,
+        email: contact.email || "",
+        area: contact.area || "",
+        city: contact.city || "",
+        state: contact.state || "",
+        nation: contact.nation || "India",
+        pincode: contact.pincode || "",
+        category: contact.category || "attendee",
+        priority: contact.priority || "medium",
+        status: contact.status || "active",
+        notes: contact.notes || "",
+      });
+    }
+  }, [contact, form]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -313,13 +330,25 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
                     <FormLabel>Occupation</FormLabel>
-                    <FormControl>
-                      <Input 
-                        {...field} 
-                        value={field.value ?? ""}
-                        placeholder="Job or profession" 
-                      />
-                    </FormControl>
+                    <Select
+                      value={field.value ?? "Other"}
+                      onValueChange={field.onChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select occupation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="School Teacher">School Teacher</SelectItem>
+                        <SelectItem value="Professor">Professor</SelectItem>
+                        <SelectItem value="Doctor">Doctor</SelectItem>
+                        <SelectItem value="Lawyer">Lawyer</SelectItem>
+                        <SelectItem value="Engineer">Engineer</SelectItem>
+                        <SelectItem value="Worker">Worker</SelectItem>
+                        <SelectItem value="Retired">Retired</SelectItem>
+                        <SelectItem value="Professional">Professional</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

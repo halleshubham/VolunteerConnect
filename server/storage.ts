@@ -276,6 +276,14 @@ export class DatabaseStorage implements IStorage {
     return updatedFollowUp;
   }
 
+  async getUniqueCities(): Promise<string[]> {
+    const result = await db
+      .selectDistinct({ city: contacts.city })
+      .from(contacts)
+      .orderBy(contacts.city);
+    return result.map(r => r.city);
+  }
+
   async deleteFollowUp(id: number): Promise<boolean> {
     const result = await db
       .delete(followUps)
@@ -310,6 +318,7 @@ export class DatabaseStorage implements IStorage {
     city?: string;
     eventId?: number;
     status?: string;
+    occupation?: string;
   }): Promise<Contact[]> {
     if (filters.eventId) {
       // Special case for filtering by event attendance
@@ -341,6 +350,7 @@ export class DatabaseStorage implements IStorage {
       if (filters.priority) conditions.push(eq(contacts.priority, filters.priority));
       if (filters.city) conditions.push(ilike(contacts.city, filters.city));
       if (filters.status) conditions.push(eq(contacts.status, filters.status));
+      if (filters.occupation) conditions.push(eq(contacts.occupation, filters.occupation));
       
       if (conditions.length > 0) {
         query = query.where(and(...conditions));

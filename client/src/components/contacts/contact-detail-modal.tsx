@@ -39,7 +39,19 @@ export default function ContactDetailModal({
   }, [contact]);
 
   // Fetch contact's event attendance
-  const { data: attendanceData = [] } = useQuery<any[]>({
+  const { data: attendanceData = [] } = useQuery<{
+    id: number;
+    eventId: number;
+    contactId: number;
+    createdAt: string;
+    event: {
+      id: number;
+      name: string;
+      date: string;
+      location: string;
+      description: string;
+    };
+  }[]>({
     queryKey: ["/api/contacts", contact?.id, "events"],
     enabled: isOpen && !!contact,
   });
@@ -189,28 +201,28 @@ export default function ContactDetailModal({
                 </TabsList>
                 
                 <TabsContent value="events" className="mt-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Event Attendance</h3>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-lg font-medium">Event Attendance</h3>
+                    <Badge variant="secondary">
+                      {attendanceData.length} Events
+                    </Badge>
+                  </div>
                   {attendanceData.length > 0 ? (
                     <div className="bg-white shadow overflow-hidden sm:rounded-md">
                       <ul className="divide-y divide-gray-200">
                         {attendanceData.map((attendance) => (
-                          <li key={attendance.id}>
-                            <div className="px-4 py-4 flex items-center sm:px-6">
+                          attendance.event && <li key={attendance.id}>
+                            <div className="px-4 py-4 flex items-center sm:px-6 border rounded-lg p-4 bg-card">
                               <div className="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
-                                {attendanceData.event && <div>
+                                <div>
                                   <div className="flex text-sm">
                                     <p className="font-medium text-primary truncate">{attendance.event.name}</p>
                                     <p className="ml-1 flex-shrink-0 font-normal text-gray-500">
-                                      on <span className="font-medium">{new Date(attendance.event.date).toLocaleDateString()}</span>
+                                      on <span className="font-medium">{new Date(attendance.event.date).toLocaleDateString()}</span> at {attendance.event.location}
                                     </p>
                                   </div>
-                                  <div className="mt-2 flex">
-                                    <div className="flex items-center text-sm text-gray-500">
-                                      <MapPin className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
-                                      <p>{attendance.event.location}</p>
-                                    </div>
-                                  </div>
-                                </div>}
+                                  
+                                </div>
                                 <div className="mt-4 flex-shrink-0 sm:mt-0">
                                   <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
                                     Attended

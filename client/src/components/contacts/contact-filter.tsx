@@ -14,6 +14,7 @@ export type FilterValues = {
   location: string;
   eventId: string;
   status: string;
+  occupation: string
 };
 
 type ContactFilterProps = {
@@ -28,6 +29,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
     location: "",
     eventId: "",
     status: "",
+    occupation: ""
   });
 
   // Fetch events for the event filter dropdown
@@ -35,6 +37,14 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
     queryKey: ["/api/events"],
   });
 
+  const { data: cities = [] } = useQuery<string[]>({
+    queryKey: ["/api/contacts/cities"],
+    queryFn: async () => {
+      const res = await fetch("/api/contacts/cities", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch cities");
+      return res.json();
+    },
+  });
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -63,6 +73,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
       location: "",
       eventId: "",
       status: "",
+      occupation: ""
     });
     onFilterChange({
       search: "",
@@ -71,6 +82,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
       location: "",
       eventId: "",
       status: "",
+      occupation:""
     });
   };
 
@@ -119,7 +131,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
             <Label htmlFor="priority">Priority</Label>
             <Select
               value={filters.priority}
-              onValueChange={(value) => handleSelectChange("priority", value)}
+              onValueChange={(value) => handleSelectChange("priority", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All Priorities" />
@@ -137,17 +149,41 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
             <Label htmlFor="location">Location</Label>
             <Select
               value={filters.location}
-              onValueChange={(value) => handleSelectChange("location", value)}
+              onValueChange={(value) => handleSelectChange("location", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All Locations" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Locations</SelectItem>
-                <SelectItem value="mumbai">Mumbai</SelectItem>
-                <SelectItem value="delhi">Delhi</SelectItem>
-                <SelectItem value="bangalore">Bangalore</SelectItem>
-                <SelectItem value="hyderabad">Hyderabad</SelectItem>
+                  {cities.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="occupation">Occupation</Label>
+            <Select
+              value={filters.occupation}
+              onValueChange={(value) => handleSelectChange("occupation", value === 'all' ? '' : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Occupations" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Occupations</SelectItem>
+                <SelectItem value="School Teacher">School Teacher</SelectItem>
+                <SelectItem value="Professor">Professor</SelectItem>
+                <SelectItem value="Doctor">Doctor</SelectItem>
+                <SelectItem value="Lawyer">Lawyer</SelectItem>
+                <SelectItem value="Engineer">Engineer</SelectItem>
+                <SelectItem value="Worker">Worker</SelectItem>
+                <SelectItem value="Retired">Retired</SelectItem>
+                <SelectItem value="Professional">Professional</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -156,7 +192,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
             <Label htmlFor="eventId">Event</Label>
             <Select
               value={filters.eventId}
-              onValueChange={(value) => handleSelectChange("eventId", value)}
+              onValueChange={(value) => handleSelectChange("eventId", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All Events" />
@@ -176,7 +212,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
             <Label htmlFor="status">Status</Label>
             <Select
               value={filters.status}
-              onValueChange={(value) => handleSelectChange("status", value)}
+              onValueChange={(value) => handleSelectChange("status", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All Statuses" />

@@ -29,7 +29,7 @@ export const contacts = pgTable("contacts", {
   priority: text("priority").notNull(), // high, medium, low
   category: text("category").notNull(), // volunteer, donor, partner, attendee
   email: text("email"),
-  occupation: text("occupation"),
+  occupation: text("occupation").notNull().default('Other'),
   sex: text("sex"),
   maritalStatus: text("marital_status"),
   pincode: text("pincode"),
@@ -95,9 +95,10 @@ export const followUps = pgTable("follow_ups", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertFollowUpSchema = createInsertSchema(followUps).omit({
-  id: true,
-  createdAt: true,
+export const insertFollowUpSchema = createInsertSchema(followUps).omit({ id: true, createdAt: true })
+.extend({
+  dueDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
+  completedDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
 });
 
 export type InsertFollowUp = z.infer<typeof insertFollowUpSchema>;

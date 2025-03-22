@@ -128,9 +128,9 @@ export default function FollowUpForm({ isOpen, onClose, onSubmit }: FollowUpForm
                     <Input 
                       type="date" 
                       {...field}
-                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                      value={field.value}
                       onChange={(e) => {
-                        field.onChange(e.target.value ? new Date(e.target.value) : undefined);
+                        field.onChange(e.target.value);
                       }}
                     />
                   </FormControl>
@@ -150,9 +150,9 @@ export default function FollowUpForm({ isOpen, onClose, onSubmit }: FollowUpForm
                       <Input 
                         type="date" 
                         {...field}
-                        value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                        value={field.value}
                         onChange={(e) => {
-                          field.onChange(e.target.value ? new Date(e.target.value) : undefined);
+                          field.onChange(e.target.value);
                         }}
                       />
                     </FormControl>
