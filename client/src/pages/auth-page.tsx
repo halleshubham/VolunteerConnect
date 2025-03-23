@@ -85,7 +85,7 @@ export default function AuthPage() {
     try {
       console.log("AuthPage: Attempting registration with username:", values.username);
       const { confirmPassword, ...userData } = values;
-      const result = await registerMutation.mutateAsync(userData);
+      const result = await registerMutation.mutateAsync({...userData, role:"viewonly"});
       console.log("AuthPage: Registration successful, user data:", result);
       
       // Short delay before redirecting to ensure session is properly established
@@ -211,7 +211,7 @@ export default function AuthPage() {
                 </Form>
               </TabsContent>
 
-              {/* <TabsContent value="register">
+              <TabsContent value="register">
                 <Form {...registerForm}>
                   <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
                     <FormField
@@ -272,7 +272,7 @@ export default function AuthPage() {
                     </Button>
                   </form>
                 </Form>
-              </TabsContent> */}
+              </TabsContent>
             </Tabs>
           </CardContent>
           <CardFooter className="flex flex-col">

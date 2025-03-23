@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import EventAttendancePage from "./pages/event-attendance-page";
 import SettingsPage from "./pages/settings-page";
 import WhatsAppConnection from "./pages/whatsapp-page";
+import TasksPage from "./pages/tasks-page";
 
 // Route wrapper component that redirects already authenticated users from auth page
 function AuthRouteWrapper() {
@@ -53,6 +54,9 @@ function Router() {
       </Route>
       <Route path="/whatsapp-status">
         {() => <ProtectedRoute component={WhatsAppConnection} />}
+      </Route>
+      <Route path="/tasks">
+        {() => <ProtectedRoute component={TasksPage} />}
       </Route>
       <Route path="*" component={NotFound} />
     </Switch>

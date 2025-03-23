@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Contact, FollowUp, insertFollowUpSchema } from "@shared/schema";
+import { Activity, Contact, FollowUp, insertActivitySchema, insertFollowUpSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import Sidebar from "@/components/layout/sidebar";
@@ -25,6 +25,8 @@ import {
   Loader2 
 } from "lucide-react";
 import { z } from "zod";
+import { useAuth } from "@/hooks/use-auth";
+import ActivityForm from "@/components/contacts/activity-form";
 
 export default function ContactDetailPage() {
   const [, params] = useRoute<{ id: string }>("/contacts/:id");
@@ -32,7 +34,10 @@ export default function ContactDetailPage() {
   const { toast } = useToast();
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
   const [isFollowUpFormOpen, setIsFollowUpFormOpen] = useState(false);
+  const [isActivityFormOpen, setIsActivityFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("events");
+
+  const {user} = useAuth();
 
   const contactId = params?.id ? parseInt(params.id) : null;
 
@@ -87,6 +92,39 @@ export default function ContactDetailPage() {
     },
   });
 
+  // Fetch contact's activities
+const { 
+  data: activities = [], 
+  isLoading: isActivitiesLoading 
+} = useQuery<Activity[]>({
+  queryKey: [`/api/contacts/${contactId}/activities`],
+  enabled: !!contactId,
+});
+
+  // Add activity mutation
+  const addActivityMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof insertActivitySchema>) => {
+      const res = await apiRequest("POST", `/api/contacts/${contactId}/activities`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/contacts/${contactId}/activities`] });
+      toast({
+        title: "Activity added",
+        description: "The activity has been added successfully.",
+      });
+      setIsActivityFormOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to add activity: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+
   // Update contact mutation
   const updateContactMutation = useMutation({
     mutationFn: async (data: Partial<Contact>) => {
@@ -126,6 +164,16 @@ export default function ContactDetailPage() {
       });
     }
   };
+
+    // Handle activity submit
+    const handleActivitySubmit = (data: z.infer<typeof insertActivitySchema>) => {
+      if (contactId) {
+        addActivityMutation.mutate({
+          ...data,
+          contactId,
+        });
+      }
+    };
 
   // Handle back button
   const handleBack = () => {
@@ -330,6 +378,10 @@ export default function ContactDetailPage() {
                         <Calendar className="h-4 w-4 mr-2" />
                         Events
                       </TabsTrigger>
+                      <TabsTrigger value="activities" className="flex-1">
+                        <Clock className="h-4 w-4 mr-2" />
+                        Activities
+                      </TabsTrigger>
                       <TabsTrigger value="followups" className="flex-1">
                         <Clock className="h-4 w-4 mr-2" />
                         Follow-ups
@@ -370,6 +422,50 @@ export default function ContactDetailPage() {
                       </div>
                     </TabsContent>
                     
+                    <TabsContent value="activities" className="p-4 pt-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-medium">Activity Records</h3>
+                        <Button onClick={() => setIsActivityFormOpen(true)}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Activity
+                        </Button>
+                      </div>
+
+                      {isActivitiesLoading ? (
+                        <div className="text-center py-4">Loading...</div>
+                      ) : activities?.length > 0 ? (
+                        <div className="space-y-4">
+                          {activities.map((activity) => (
+                            <Card key={activity.id}>
+                              <CardContent className="p-4">
+                                <div className="flex justify-between items-start">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Badge>{activity.title}</Badge>
+                                      <span className="text-sm text-gray-500">
+                                        {new Date(activity.createdAt).toLocaleDateString()} by {user?.role === 'admin' ? activity?.createdBy : "You"}
+                                      </span>
+                                    </div>
+                                    <p className="text-gray-700 whitespace-pre-line">{activity.notes}</p>
+                                    {activity.activityDate && (
+                                      <p className="text-sm text-gray-500">
+                                        Activity Date: {new Date(activity.activityDate).toLocaleDateString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-gray-500">
+                          No activity records
+                        </div>
+                      )}
+                    </TabsContent>
+
+
                     <TabsContent value="followups" className="p-4 pt-6">
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-medium">Follow-up Records</h3>
@@ -392,7 +488,7 @@ export default function ContactDetailPage() {
                                     <div className="flex items-center space-x-2">
                                       <Badge>{followUp.status}</Badge>
                                       <span className="text-sm text-gray-500">
-                                        {new Date(followUp.createdAt).toLocaleDateString()}
+                                        {new Date(followUp.createdAt).toLocaleDateString()} by {user?.role=='admin' ? followUp?.createdBy : "You"}
                                       </span>
                                     </div>
                                     <p className="text-gray-700 whitespace-pre-line">{followUp.notes}</p>
@@ -413,6 +509,7 @@ export default function ContactDetailPage() {
                         </div>
                       )}
                     </TabsContent>
+
                   </Tabs>
                 </CardContent>
               </Card>
@@ -436,6 +533,13 @@ export default function ContactDetailPage() {
         isOpen={isFollowUpFormOpen}
         onClose={() => setIsFollowUpFormOpen(false)}
         onSubmit={handleFollowUpSubmit}
+      />
+
+      {/* Follow-up Form */}
+      <ActivityForm 
+        isOpen={isActivityFormOpen}
+        onClose={() => setIsActivityFormOpen(false)}
+        onSubmit={handleActivitySubmit}
       />
     </div>
   );

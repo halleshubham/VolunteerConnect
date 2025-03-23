@@ -1,4 +1,4 @@
-import { contacts, type Contact, type InsertContact } from "@shared/schema";
+import { activities, Activity, contacts, InsertActivity, type Contact, type InsertContact } from "@shared/schema";
 import { events, type Event, type InsertEvent } from "@shared/schema";
 import { attendance, type Attendance, type InsertAttendance } from "@shared/schema";
 import { followUps, type FollowUp, type InsertFollowUp } from "@shared/schema";
@@ -41,11 +41,17 @@ export interface IStorage {
   createAttendance(attendance: InsertAttendance): Promise<Attendance>;
   
   // Follow-up operations
-  getFollowUpsByContactId(contactId: number): Promise<FollowUp[]>;
+  getFollowUpsByContactId(contactId: number, user: User | undefined): Promise<FollowUp[]>;
   createFollowUp(followUp: InsertFollowUp): Promise<FollowUp>;
   updateFollowUp(id: number, followUp: Partial<FollowUp>): Promise<FollowUp | undefined>;
   deleteFollowUp(id: number): Promise<boolean>;
   
+  // Activity operations
+  getActivitiesByContactId(contactId: number, user: User | undefined): Promise<Activity[]>;
+  createActivity(activity: InsertActivity): Promise<Activity>;
+  updateActivity(id: number, activity: Partial<Activity>): Promise<Activity | undefined>;
+  deleteActivity(id: number): Promise<boolean>;
+
   // Search and filter
   searchContacts(query: string): Promise<Contact[]>;
   filterContacts(filters: {
@@ -251,12 +257,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Follow-up operations
-  async getFollowUpsByContactId(contactId: number): Promise<FollowUp[]> {
+  async getFollowUpsByContactId(contactId: number, user: User | undefined): Promise<FollowUp[]> {
+    if(user?.role == 'viewonly') {
     return await db
       .select()
       .from(followUps)
-      .where(eq(followUps.contactId, contactId))
+      .where(and(eq(followUps.contactId, contactId), eq(followUps.createdBy, user?.username)))
       .orderBy(desc(followUps.createdAt));
+    } else {
+      return await db
+        .select()
+        .from(followUps)
+        .where((eq(followUps.contactId, contactId)))
+        .orderBy(desc(followUps.createdAt));
+    }
   }
 
   async createFollowUp(followUp: InsertFollowUp): Promise<FollowUp> {
@@ -290,6 +304,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(followUps.id, id));
     return true; // In PostgreSQL, if the deletion fails it will throw an error
   }
+
+  // Activity operations
+  // Fetch activities by contactId with role-based access
+  async getActivitiesByContactId(contactId: number, user: User | undefined): Promise<Activity[]> {
+    // if (user?.role === 'viewonly') {
+    //   return await db
+    //     .select()
+    //     .from(activities)
+    //     .where(and(eq(activities.contactId, contactId), eq(activities.createdBy, user?.username)))
+    //     .orderBy(desc(activities.createdAt));
+    // } else {
+      return await db
+        .select()
+        .from(activities)
+        .where(eq(activities.contactId, contactId))
+        .orderBy(desc(activities.createdAt));
+    //}
+  }
+
+  // Create a new activity
+  async createActivity(activity: InsertActivity): Promise<Activity> {
+    const [newActivity] = await db
+      .insert(activities)
+      .values(activity)
+      .returning();
+    return newActivity;
+  }
+
+  // Update an existing activity
+  async updateActivity(id: number, update: Partial<Activity>): Promise<Activity | undefined> {
+    const [updatedActivity] = await db
+      .update(activities)
+      .set(update)
+      .where(eq(activities.id, id))
+      .returning();
+    return updatedActivity;
+  }
+
 
   // Search and filter
   async searchContacts(query: string): Promise<Contact[]> {
@@ -343,28 +395,60 @@ export class DatabaseStorage implements IStorage {
         return match;
       });
     } else {
-      // Regular filtering without event attendance
-      let query = db.select().from(contacts);
-      const conditions = [];
+      // // Regular filtering without event attendance
+      // let query = db.select().from(contacts);
+      // const conditions = [];
       
+      // if (filters.category) conditions.push(eq(contacts.category, filters.category));
+      // if (filters.priority) conditions.push(eq(contacts.priority, filters.priority));
+      // if (filters.city) conditions.push(ilike(contacts.city, filters.city));
+      // if (filters.status) conditions.push(eq(contacts.status, filters.status));
+      // if (filters.occupation) conditions.push(eq(contacts.occupation, filters.occupation));
+      // if (filters.assignedTo) conditions.push(sql`
+      //   EXISTS (
+      //     SELECT 1 FROM unnest(${contacts.assignedTo}) AS assignment
+      //     WHERE assignment ILIKE ${'%' + filters.assignedTo + '%'}
+      //   )
+      // `);
+
+      
+      // if (conditions.length > 0) {
+      //   query = query.where(and(...conditions));
+      // }
+      
+      // return await query.orderBy(desc(contacts.createdAt));
+      // Base query with LEFT JOIN to count activities
+      let query = db
+      .select({
+        ...contacts,
+        activityScore: sql<number>`COALESCE(COUNT(activities.id), 0)`.as('activityScore'),
+      })
+      .from(contacts)
+      .leftJoin(activities, eq(contacts.id, activities.contactId));
+
+      // Prepare conditions
+      const conditions = [];
+
       if (filters.category) conditions.push(eq(contacts.category, filters.category));
       if (filters.priority) conditions.push(eq(contacts.priority, filters.priority));
       if (filters.city) conditions.push(ilike(contacts.city, filters.city));
       if (filters.status) conditions.push(eq(contacts.status, filters.status));
       if (filters.occupation) conditions.push(eq(contacts.occupation, filters.occupation));
       if (filters.assignedTo) conditions.push(sql`
-        EXISTS (
-          SELECT 1 FROM unnest(${contacts.assignedTo}) AS assignment
-          WHERE assignment ILIKE ${'%' + filters.assignedTo + '%'}
-        )
+      EXISTS (
+        SELECT 1 FROM unnest(${contacts.assignedTo}) AS assignment
+        WHERE assignment ILIKE ${'%' + filters.assignedTo + '%'}
+      )
       `);
 
-      
       if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+      query = query.where(and(...conditions));
       }
-      
-      return await query.orderBy(desc(contacts.createdAt));
+
+      // Group by contact to ensure correct count
+      query = query.groupBy(contacts.id).orderBy(desc(contacts.createdAt));
+
+      return await query;
     }
   }
 }

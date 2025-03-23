@@ -66,34 +66,37 @@ export default function Sidebar() {
                   Contacts
                 </a>
               </Link>
-              <Link href="/events" onClick={closeSidebar}>
-                <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 ${
-                  location.startsWith("/events") ? "bg-primary/10 text-primary border-l-3 border-primary" : "text-gray-700"
-                }`}>
-                  <Calendar className="h-5 w-5 mr-3" />
-                  Events
-                </a>
-              </Link>
-              <Link href="/reports" onClick={closeSidebar}>
-                <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 ${
-                  location.startsWith("/reports") ? "bg-primary/10 text-primary border-l-3 border-primary" : "text-gray-700"
-                }`}>
-                  <ClipboardList className="h-5 w-5 mr-3" />
-                  Reports
-                </a>
-              </Link>
+              {user?.role == 'admin' && 
+              <>
+                <Link href="/events" onClick={closeSidebar}>
+                  <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 ${
+                    location.startsWith("/events") ? "bg-primary/10 text-primary border-l-3 border-primary" : "text-gray-700"
+                  }`}>
+                    <Calendar className="h-5 w-5 mr-3" />
+                    Events
+                  </a>
+                </Link>
+                <Link href="/tasks" onClick={closeSidebar}>
+                  <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 ${
+                    location.startsWith("/tasks") ? "bg-primary/10 text-primary border-l-3 border-primary" : "text-gray-700"
+                  }`}>
+                    <ClipboardList className="h-5 w-5 mr-3" />
+                    Tasks
+                  </a>
+                </Link>
+              </>}
             </div>
             
             <div className="mt-8 space-y-1">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Settings</h3>
-              <Link href="/settings" onClick={closeSidebar}>
+              {user?.role == 'admin' && <Link href="/settings" onClick={closeSidebar}>
                 <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 ${
                   location.startsWith("/settings") ? "bg-primary/10 text-primary border-l-3 border-primary" : "text-gray-700"
                 }`}>
                   <Settings className="h-5 w-5 mr-3" />
                   Settings
                 </a>
-              </Link>
+              </Link>}
               <Button 
                 variant="ghost" 
                 className="flex w-full items-center justify-start px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"

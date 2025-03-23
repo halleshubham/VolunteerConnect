@@ -85,7 +85,8 @@ export default function ContactDetailModal({
     const hash = name.split("").reduce((acc, char) => char.charCodeAt(0) + acc, 0);
     return colors[hash % colors.length];
   };
-
+  
+  return(<></>);
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl">

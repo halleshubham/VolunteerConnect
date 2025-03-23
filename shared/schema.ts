@@ -7,11 +7,13 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  role: text("role")
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  role: true
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -95,6 +97,7 @@ export const followUps = pgTable("follow_ups", {
   dueDate: timestamp("due_date"),
   completedDate: timestamp("completed_date"),
   createdAt: timestamp("created_at").defaultNow(),
+  createdBy: text("created_by").notNull().references(()=> users.username),
 });
 
 export const insertFollowUpSchema = createInsertSchema(followUps).omit({ id: true, createdAt: true })
@@ -105,3 +108,22 @@ export const insertFollowUpSchema = createInsertSchema(followUps).omit({ id: tru
 
 export type InsertFollowUp = z.infer<typeof insertFollowUpSchema>;
 export type FollowUp = typeof followUps.$inferSelect;
+
+// Activities table
+export const activities = pgTable("activities", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").notNull().references(() => contacts.id),
+  notes: text("notes").notNull(),
+  title: text("status").notNull(),
+  activityDate: timestamp("due_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: text("created_by").notNull().references(()=> users.username),
+});
+
+export const insertActivitySchema = createInsertSchema(activities).omit({ id: true, createdAt: true })
+.extend({
+  activityDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
+});
+
+export type InsertActivity = z.infer<typeof insertActivitySchema>;
+export type Activity = typeof activities.$inferSelect;

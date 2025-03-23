@@ -6,3 +6,4 @@ vite.config.ts.*
 *.tar.gz
 .wwebjs_auth
 .wwebjs_cache
+sessions/

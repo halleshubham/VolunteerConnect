@@ -8,13 +8,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { UsersRound, CalendarDays, Award, Activity, Users, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useAuth } from "@/hooks/use-auth";
+import { navigate } from "wouter/use-browser-location";
 
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const {user} = useAuth();
+
   // Fetch contacts
   const { data: contacts = [] } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts"],
+    queryKey: user?.role == 'admin' ? ["/api/contacts"] : ["/api/contacts?assignedTo="+user?.username],
   });
 
   // Fetch events

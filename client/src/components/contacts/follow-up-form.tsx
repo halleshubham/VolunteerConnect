@@ -29,11 +29,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { X } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 // Form schema without contactId (will be added by parent component)
 const formSchema = insertFollowUpSchema.omit({ 
   contactId: true,
-  createdAt: true,
 });
 
 type FollowUpFormProps = {
@@ -44,6 +44,9 @@ type FollowUpFormProps = {
 
 export default function FollowUpForm({ isOpen, onClose, onSubmit }: FollowUpFormProps) {
   // Initialize form with default values
+
+  const {user} = useAuth();
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -51,6 +54,7 @@ export default function FollowUpForm({ isOpen, onClose, onSubmit }: FollowUpForm
       status: "pending",
       dueDate: undefined,
       completedDate: undefined,
+      createdBy: user?.username
     },
   });
 

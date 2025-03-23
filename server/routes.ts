@@ -7,7 +7,8 @@ import {
   insertContactSchema, 
   insertEventSchema, 
   insertFollowUpSchema,
-  Contact 
+  Contact, 
+  insertActivitySchema
 } from "@shared/schema";
 import { z } from "zod";
 import ExcelJS from 'exceljs';
@@ -44,34 +45,44 @@ const upload = multer({
 
 let latestQR = null;
 let isReady = false;
+const clients = {};  // Store WhatsApp client per user
 
-const client = new Client({
-  authStrategy: new LocalAuth(),
-});
+// Create and return client for specific user
+function getClient(userId:any) {
+  if (clients[userId]) return clients[userId];
+  const client = new Client({
+    authStrategy: new LocalAuth({ dataPath: `./sessions/user_${userId}` }),
+    puppeteer: { headless: true }
+  });
+  
+  client.initialize();
+  clients[userId] = client;
+  return client;
+}
 
-client.on('qr', (qr) => {
-  console.log('QR Received');
-  latestQR = qr;
-  isReady = false;
-});
+// client.on('qr', (qr) => {
+//   console.log('QR Received');
+//   latestQR = qr;
+//   isReady = false;
+// });
 
-client.on('ready', () => {
-  console.log('✅ WhatsApp Client Ready');
-  latestQR = null; // Clear QR once connected
-  isReady = true;
-});
+// client.on('ready', () => {
+//   console.log('✅ WhatsApp Client Ready');
+//   latestQR = null; // Clear QR once connected
+//   isReady = true;
+// });
 
-client.on('auth_failure', () => {
-  console.log('❌ Auth failure. QR will regenerate.');
-  isReady = false;
-});
+// client.on('auth_failure', () => {
+//   console.log('❌ Auth failure. QR will regenerate.');
+//   isReady = false;
+// });
 
-client.on('disconnected', () => {
-  console.log('❌ WhatsApp disconnected');
-  isReady = false;
-});
+// client.on('disconnected', () => {
+//   console.log('❌ WhatsApp disconnected');
+//   isReady = false;
+// });
 
-client.initialize();
+// client.initialize();
 
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -81,24 +92,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   //===== whatsapp routes ======
 
-  // API for QR fetch
-  app.get('/get-qr', (req, res) => {
-    if (latestQR) {
-      res.json({ qr: latestQR });
+// API to get QR or check connection
+app.get('/auth/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const client = getClient(userId);
+
+  if (client.info?.wid) return res.json({ status: 'authenticated' });
+
+  client.once('qr', (qr) => {
+    res.json({ status: 'qr', qr });
+  });
+
+  client.once('ready', () => {
+    console.log(`✅ User ${userId} WhatsApp Ready`);
+  });
+});
+
+  // API for status check
+  app.get('/status/:userId', (req, res) => {
+    const { userId } = req.params;
+    const client = clients[userId];
+    if (client && client.info?.wid) {
+      res.json({ isReady: true });
     } else {
-      res.status(404).json({ message: 'No QR available' });
+      res.json({ isReady: false });
     }
   });
 
-  // API for status check
-  app.get('/status', (req, res) => {
-    res.json({ isReady });
-  });
-
   // ✅ API to send message batch
-  app.post('/send-messages', async (req, res) => {
-    if (!isReady) return res.status(400).json({ message: 'WhatsApp Not Ready' });
-
+  app.post('/send-message/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const client = getClient(userId);
+    if (!client.info?.wid) return res.status(400).json({ message: 'Not Authenticated' });
+  
     const { numbers, message } = req.body; // numbers = ['919876543210', '919123456789']
     const results = [];
 
@@ -133,16 +159,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/contacts", isAuthenticated, async (req, res, next) => {
     try {
       const { search, category, priority, city, event, status, occupation, assignedTo, team } = req.query;
+      const user = req.user;
 
       // Handle search query
       if (search && typeof search === 'string') {
         const contacts = await storage.searchContacts(search);
         return res.json(contacts);
       }
-      
+      const filters: any = {};
       // Handle filters
       if (category || priority || city || event || status || occupation || assignedTo || team) {
-        const filters: any = {};
+       
         
         if (category) filters.category = category;
         if (priority) filters.priority = priority;
@@ -150,16 +177,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (status) filters.status = status;
         if (occupation) filters.occupation = occupation;
         if (event) filters.eventId = parseInt(event as string);
-        if (assignedTo) filters.assignedTo = assignedTo;
         if (team) filters.team = team;
+
+        
+          if(user?.role=='admin'){
+            if(assignedTo) filters.assignedTo = assignedTo;
+          } else {
+            filters.assignedTo = user?.username;
+          }
         
         const contacts = await storage.filterContacts(filters);
         return res.json(contacts);
       }
-      
+
+      if(user?.role=='viewonly'){
+          filters.assignedTo = user?.username;
+      } 
       // Get all contacts if no filters
-      const contacts = await storage.getContacts();
+      const contacts = await storage.filterContacts(filters);
       res.json(contacts);
+
     } catch (error) {
       next(error);
     }
@@ -279,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Contact not found" });
       }
       
-      const followUps = await storage.getFollowUpsByContactId(id);
+      const followUps = await storage.getFollowUpsByContactId(id, req.user);
       res.json(followUps);
     } catch (error) {
       next(error);
@@ -309,6 +346,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ 
           message: "Validation error", 
           errors: error.errors 
+        });
+      }
+      next(error);
+    }
+  });
+
+  // ✅ Get contact's activities
+  app.get("/api/contacts/:id/activities", isAuthenticated, async (req, res, next) => {
+    try {
+      const contactId = parseInt(req.params.id);
+
+      // Ensure the contact exists
+      const existingContact = await storage.getContactById(contactId);
+      if (!existingContact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      const activities = await storage.getActivitiesByContactId(contactId, req.user);
+      res.json(activities);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ✅ Add activity to contact
+  app.post("/api/contacts/:id/activities", isAuthenticated, async (req, res, next) => {
+    try {
+      const contactId = parseInt(req.params.id);
+
+      // Ensure the contact exists
+      const existingContact = await storage.getContactById(contactId);
+      if (!existingContact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      const activityData = insertActivitySchema.parse({
+        ...req.body,
+        contactId
+      });
+
+      const activity = await storage.createActivity(activityData);
+      res.status(201).json(activity);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors
         });
       }
       next(error);
@@ -559,17 +643,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const updateData: any = {};
             
             // Only update if the fields are provided and empty in the DB
-            // const email = row.getCell('Email').text?.trim();
-            // if (email && !contact.email) updateData.email = email;
+            const email = row.getCell('Email').text?.trim();
+            if (email && !contact.email) updateData.email = email;
             
-            // const area = row.getCell('Area').text?.trim();
-            // if (area && !contact.area) updateData.area = area;
+            const area = row.getCell('Area').text?.trim();
+            if (area && !contact.area) updateData.area = area;
             
-            // const city = row.getCell('City').text?.trim();
-            // if (city && !contact.city) updateData.city = city;
+            const city = row.getCell('City').text?.trim();
+            if (city && !contact.city) updateData.city = city;
             
-            // const state = row.getCell('State').text?.trim();
-            // if (state && !contact.state) updateData.state = state;
+            const state = row.getCell('State').text?.trim();
+            if (state && !contact.state) updateData.state = state;
+
+            const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
+            if(assignedTo && !contact.assignedTo?.length) updateData.assignedTo = assignedTo;
+
+            const team = row.getCell(16).text?.trim();
+            if (team && !contact.team) updateData.team = team;
             
             const occupation = row.getCell(9).text?.trim();
             if (occupation) updateData.occupation = occupation.toLowerCase();
@@ -581,11 +671,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const status = row.getCell(12).text?.trim().toLowerCase();
             if (status) updateData.status = status.toLowerCase();
 
-            const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
-            if(assignedTo) updateData.assignedTo = assignedTo;
+            //Dont update assignment
+            // const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
+            // if(assignedTo) updateData.assignedTo = assignedTo;
 
-            const team = row.getCell(16).text?.trim();
-            if (team) updateData.team = team;
+            // const team = row.getCell(16).text?.trim();
+            // if (team) updateData.team = team;
 
             // Update if there are changes
             if (Object.keys(updateData).length > 0) {

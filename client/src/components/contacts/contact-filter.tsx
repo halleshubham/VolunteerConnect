@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search } from "lucide-react";
 import { Event } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 export type FilterValues = {
   search: string;
@@ -24,6 +25,7 @@ type ContactFilterProps = {
 };
 
 export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
+  const {user} = useAuth();
   const [filters, setFilters] = useState<FilterValues>({
     search: "",
     category: "",
@@ -115,7 +117,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
               />
             </div>
           </div>
-          <div className="md:col-span-1">
+          {user?.role == 'admin' && <div className="md:col-span-1">
             <Label htmlFor="assignedTo">Assigned To</Label>
             <div className="mt-1 relative rounded-md shadow-sm">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -131,7 +133,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 onChange={handleInputChange}
               />
             </div>
-          </div>
+          </div>}
           
           <div>
             <Label htmlFor="category">Category</Label>

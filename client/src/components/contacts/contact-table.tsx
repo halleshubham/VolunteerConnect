@@ -154,7 +154,7 @@ export default function ContactTable({ contacts, onView, onEdit }: ContactTableP
                 <TableHead>Location</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Activity Score</TableHead>
                 <TableHead>Assignment</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -191,7 +191,7 @@ export default function ContactTable({ contacts, onView, onEdit }: ContactTableP
                       {getPriorityBadge(contact.priority)}
                     </TableCell>
                     <TableCell>
-                      {getStatusBadge(contact.status || 'active')}
+                      {contact?.activityScore}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-gray-900">{contact.assignedTo?.toString()}</div>
