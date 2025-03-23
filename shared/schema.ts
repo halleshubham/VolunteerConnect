@@ -36,7 +36,8 @@ export const contacts = pgTable("contacts", {
   status: text("status").default("active"), // active, inactive, follow-up
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
-  assignedTo: text("assignedTo").array()
+  assignedTo: text("assignedTo").array(),
+  team: text("team")
 });
 
 export const insertContactSchema = createInsertSchema(contacts).omit({

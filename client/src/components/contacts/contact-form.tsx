@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useEffect } from "react";
 
 // Create a contact form type that handles all the field types correctly
@@ -51,6 +51,8 @@ type ContactFormData = {
   pincode: string;
   notes: string;
   createdAt?: Date;
+  team?: string,
+  assignedTo: string[]
 };
 
 // Extended schema with validation
@@ -89,7 +91,9 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
     maritalStatus: contact.maritalStatus ?? undefined,
     pincode: contact.pincode ?? "",
     notes: contact.notes ?? "",
-    createdAt: contact.createdAt ?? undefined
+    createdAt: contact.createdAt ?? undefined,
+    team: contact.team ?? "",
+    assignedTo: contact.assignedTo ?? [""]
   });
   
   // Initialize form with default values or contact data for editing
@@ -109,6 +113,11 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
       priority: contact?.priority || "medium",
       status: contact?.status || "active",
       notes: contact?.notes || "",
+      team: contact?.team || "",
+      assignedTo: contact?.assignedTo || [""],
+      sex: contact?.sex || "",
+      occupation: contact?.occupation || "",
+      maritalStatus: contact?.maritalStatus || "Single"
     },
   });
 
@@ -128,13 +137,18 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
         priority: contact.priority || "medium",
         status: contact.status || "active",
         notes: contact.notes || "",
+        team: contact.team || "",
+        assignedTo: contact.assignedTo || [""],
+        sex: contact?.sex || "",
+        occupation: contact?.occupation || "",
+        maritalStatus: contact?.maritalStatus || "Single"
       });
     }
   }, [contact, form]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-4xl" style={{'overflowY':'scroll', 'maxHeight':'80%'}}>
         <DialogHeader>
           <DialogTitle>{contact ? "Edit Contact" : "Add New Contact"}</DialogTitle>
           <DialogDescription>
@@ -178,6 +192,38 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                     <FormControl>
                       <Input {...field} placeholder="+91 XXXXX XXXXX" />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="team"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-3">
+                    <FormLabel>Team *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a Team" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="all">All Teams</SelectItem>
+                        <SelectItem value="lokayat-general">Lokayat General</SelectItem>
+                        <SelectItem value="abhivyakti">Abhivyakti</SelectItem>
+                        <SelectItem value="mahila-jagar-samiti">Mahila Jagar Samiti</SelectItem>
+                        <SelectItem value="congress-jj-shakti">Congress (Jai Jawan / Shakti)</SelectItem>
+                        <SelectItem value="maharashtra-level">Maharashtra</SelectItem>
+                        <SelectItem value="congress-party">Congress Party</SelectItem>
+                        <SelectItem value="ncp-party">NCP Party</SelectItem>
+                        <SelectItem value="shivsena-party">Shivsena Party</SelectItem>
+                        <SelectItem value="other-organisations">Other Organisations</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -247,6 +293,59 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                     <FormControl>
                       <Input {...field} placeholder="City name" />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="assignedTo"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-3">
+                    <FormLabel>Assigned To</FormLabel>
+                    <div className="space-y-2">
+                      {field?.value?.map((person, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <FormControl>
+                            <Input
+                              value={person}
+                              onChange={(e) => {
+                                const newAssignedTo = [...field?.value];
+                                newAssignedTo[index] = e.target.value;
+                                field.onChange(newAssignedTo);
+                              }}
+                              placeholder={`Person ${index + 1}`}
+                            />
+                          </FormControl>
+                          {field?.value?.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const newAssignedTo = field?.value?.filter((_, i) => i !== index);
+                                field.onChange(newAssignedTo);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => {
+                          field.onChange([...field.value, ""]);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Another Person
+                      </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -335,18 +434,19 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                       onValueChange={field.onChange}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select occupation" />
+                        <SelectValue placeholder="Select Occupation" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="School Teacher">School Teacher</SelectItem>
-                        <SelectItem value="Professor">Professor</SelectItem>
-                        <SelectItem value="Doctor">Doctor</SelectItem>
-                        <SelectItem value="Lawyer">Lawyer</SelectItem>
-                        <SelectItem value="Engineer">Engineer</SelectItem>
-                        <SelectItem value="Worker">Worker</SelectItem>
-                        <SelectItem value="Retired">Retired</SelectItem>
-                        <SelectItem value="Professional">Professional</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        <SelectItem value="school-teacher">School Teacher</SelectItem>
+                        <SelectItem value="professor">Professor</SelectItem>
+                        <SelectItem value="doctor">Doctor</SelectItem>
+                        <SelectItem value="lawyer">Lawyer</SelectItem>
+                        <SelectItem value="engineer">Engineer</SelectItem>
+                        <SelectItem value="worker">Worker</SelectItem>
+                        <SelectItem value="retired">Retired</SelectItem>
+                        <SelectItem value="student">Student</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -481,7 +581,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
               />
             </div>
 
-            <DialogFooter>
+            <DialogFooter style={{'position': 'sticky', 'bottom': '0'}}>
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>

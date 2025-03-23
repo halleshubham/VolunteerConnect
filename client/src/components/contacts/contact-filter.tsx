@@ -15,7 +15,8 @@ export type FilterValues = {
   eventId: string;
   status: string;
   occupation: string,
-  assignedTo: string
+  assignedTo: string,
+  team: string
 };
 
 type ContactFilterProps = {
@@ -31,7 +32,8 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
     eventId: "",
     status: "",
     occupation: "",
-    assignedTo: ""
+    assignedTo: "",
+    team: ""
   });
 
   // Fetch events for the event filter dropdown
@@ -76,7 +78,8 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
       eventId: "",
       status: "",
       occupation: "",
-      assignedTo: ""
+      assignedTo: "",
+      team: ""
     });
     onFilterChange({
       search: "",
@@ -86,7 +89,8 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
       eventId: "",
       status: "",
       occupation:"",
-      assignedTo: ""
+      assignedTo: "",
+      team: ""
     });
   };
 
@@ -147,6 +151,30 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
               </SelectContent>
             </Select>
           </div>
+
+          <div>
+            <Label htmlFor="team">Team</Label>
+            <Select
+              value={filters.team || 'all'}
+              onValueChange={(value) => handleSelectChange("team", value === 'all' ? '' : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Teams" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Teams</SelectItem>
+                <SelectItem value="lokayat-general">Lokayat General</SelectItem>
+                <SelectItem value="abhivyakti">Abhivyakti</SelectItem>
+                <SelectItem value="mahila-jagar-samiti">Mahila Jagar Samiti</SelectItem>
+                <SelectItem value="congress-party">Congress Party</SelectItem>
+                <SelectItem value="ncp-party">NCP Party</SelectItem>
+                <SelectItem value="shivsena-party">Shivsena Party</SelectItem>
+                <SelectItem value="other-organisations">Other Organisations</SelectItem>
+                <SelectItem value="congress-jj-shakti">Congress (Jai Jawan / Shakti)</SelectItem>
+                <SelectItem value="maharashtra-level">Maharashtra</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           
           <div>
             <Label htmlFor="priority">Priority</Label>
@@ -196,15 +224,16 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Occupations</SelectItem>
-                <SelectItem value="School Teacher">School Teacher</SelectItem>
-                <SelectItem value="Professor">Professor</SelectItem>
-                <SelectItem value="Doctor">Doctor</SelectItem>
-                <SelectItem value="Lawyer">Lawyer</SelectItem>
-                <SelectItem value="Engineer">Engineer</SelectItem>
-                <SelectItem value="Worker">Worker</SelectItem>
-                <SelectItem value="Retired">Retired</SelectItem>
-                <SelectItem value="Professional">Professional</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
+                <SelectItem value="school teacher">School Teacher</SelectItem>
+                <SelectItem value="professor">Professor</SelectItem>
+                <SelectItem value="doctor">Doctor</SelectItem>
+                <SelectItem value="lawyer">Lawyer</SelectItem>
+                <SelectItem value="engineer">Engineer</SelectItem>
+                <SelectItem value="worker">Worker</SelectItem>
+                <SelectItem value="retired">Retired</SelectItem>
+                <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="professional">Professional</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
           </div>

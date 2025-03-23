@@ -58,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all contacts with optional filtering
   app.get("/api/contacts", isAuthenticated, async (req, res, next) => {
     try {
-      const { search, category, priority, city, event, status, occupation, assignedTo } = req.query;
+      const { search, category, priority, city, event, status, occupation, assignedTo, team } = req.query;
 
       // Handle search query
       if (search && typeof search === 'string') {
@@ -67,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Handle filters
-      if (category || priority || city || event || status || occupation || assignedTo) {
+      if (category || priority || city || event || status || occupation || assignedTo || team) {
         const filters: any = {};
         
         if (category) filters.category = category;
@@ -77,6 +77,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (occupation) filters.occupation = occupation;
         if (event) filters.eventId = parseInt(event as string);
         if (assignedTo) filters.assignedTo = assignedTo;
+        if (team) filters.team = team;
         
         const contacts = await storage.filterContacts(filters);
         return res.json(contacts);
@@ -509,6 +510,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
             if(assignedTo) updateData.assignedTo = assignedTo;
 
+            const team = row.getCell(16).text?.trim();
+            if (team) updateData.team = team;
+
             // Update if there are changes
             if (Object.keys(updateData).length > 0) {
               contact = await storage.updateContact(contact.id, updateData) as any;
@@ -528,7 +532,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const category = row.getCell(11).text?.trim();
             const status = row.getCell(12).text?.trim();
             const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
-            
+            const team = row.getCell(16).text?.trim();
+
             contact = await storage.createContact({
               name,
               mobile,
@@ -542,7 +547,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               priority, // Default values
               category,
               status,
-              assignedTo
+              assignedTo,
+              team,
             });
             
             result.created++;

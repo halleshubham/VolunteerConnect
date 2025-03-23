@@ -159,7 +159,7 @@ export default function AuthPage() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
+                {/* <TabsTrigger value="register">Register</TabsTrigger> */}
               </TabsList>
 
               <TabsContent value="login">
@@ -211,7 +211,7 @@ export default function AuthPage() {
                 </Form>
               </TabsContent>
 
-              <TabsContent value="register">
+              {/* <TabsContent value="register">
                 <Form {...registerForm}>
                   <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
                     <FormField
@@ -272,7 +272,7 @@ export default function AuthPage() {
                     </Button>
                   </form>
                 </Form>
-              </TabsContent>
+              </TabsContent> */}
             </Tabs>
           </CardContent>
           <CardFooter className="flex flex-col">

@@ -12,6 +12,7 @@ import ContactDetailModal from "@/components/contacts/contact-detail-modal";
 import { Button } from "@/components/ui/button";
 import { Loader2, UserPlus, FileUp, FileDown } from "lucide-react";
 import { z } from "zod";
+import * as XLSX from "xlsx";
 
 export default function ContactsPage() {
   const { toast } = useToast();
@@ -27,7 +28,8 @@ export default function ContactsPage() {
     eventId: "",
     status: "",
     occupation: "",
-    assignedTo: ""
+    assignedTo: "",
+    team: ""
   });
 
   // Fetch contacts with filters
@@ -47,6 +49,7 @@ export default function ContactsPage() {
       if (filtersObj.status) params.append("status", filtersObj.status);
       if (filtersObj.occupation) params.append("occupation", filtersObj.occupation);
       if (filtersObj.assignedTo) params.append("assignedTo", filtersObj.assignedTo);
+      if (filtersObj.team) params.append("team", filtersObj.team);
       
       const url = `/api/contacts${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await fetch(url, { credentials: "include" });
@@ -138,6 +141,41 @@ export default function ContactsPage() {
     setFilterValues(filters);
   };
 
+  /**
+   * Converts array of objects to Excel (xlsx) and downloads the file
+   * @param {Array} data - Array of objects to export
+   * @param {string} fileName - Desired filename
+   */
+  const exportToExcel = (data: any, fileName = 'exported-contacts-'+new Date().toISOString()+'.xlsx') => {
+    if (!data || data.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    // Step 1: Find max array length in skills
+    const maxSkills = Math.max(...data.map(item => item.assignedTo?.length || 0));
+
+    // Step 2: Flatten the array field into separate columns
+    const flattenedData = data.map((item) => {
+      const assignedTos = item.assignedTo || [];
+      const assignedToObj = {};
+      for (let i = 0; i < maxSkills; i++) {
+        assignedToObj[`assignedTo_${i + 1}`] = assignedTos[i] || '';
+      }
+      return { ...item, ...assignedToObj };
+    });
+
+    // Create a worksheet from the JSON data
+    const worksheet = XLSX.utils.json_to_sheet(flattenedData);
+
+    // Create a new workbook and append the worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+
+    // Write the workbook and trigger download
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
@@ -158,19 +196,20 @@ export default function ContactsPage() {
                   <UserPlus className="-ml-1 mr-2 h-5 w-5" />
                   Add Contact
                 </Button>
-                <Button 
+                {/* <Button 
                   variant="outline"
                   className="inline-flex items-center"
                   onClick={() => window.location.href = "/api/import"}
                 >
                   <FileUp className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
                   Import Excel
-                </Button>
+                </Button> */}
                 <Button 
                   variant="outline"
                   className="inline-flex items-center"
+                  onClick={()=>exportToExcel(contacts)}
                 >
-                  <FileDown className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
+                <FileDown className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
                   Export
                 </Button>
               </div>
@@ -204,7 +243,7 @@ export default function ContactsPage() {
                     <UserPlus className="-ml-1 mr-2 h-5 w-5" />
                     Add Your First Contact
                   </Button>
-                  <Button 
+                  {/* <Button 
                     variant="outline"
                     className="inline-flex items-center"
                     onClick={() => window.location.href = "/api/import"}
@@ -212,7 +251,7 @@ export default function ContactsPage() {
                   >
                     <FileUp className="-ml-1 mr-2 h-5 w-5" />
                     Import from Excel
-                  </Button>
+                  </Button> */}
                 </div>
               </div>
             </div>
