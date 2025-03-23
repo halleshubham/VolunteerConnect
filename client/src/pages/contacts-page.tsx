@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, UserPlus, FileUp, FileDown } from "lucide-react";
 import { z } from "zod";
 import * as XLSX from "xlsx";
+import WhatsappForm from "@/components/contacts/whatsapp-form";
 
 export default function ContactsPage() {
   const { toast } = useToast();
@@ -20,6 +21,7 @@ export default function ContactsPage() {
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isWhatsappFormOpen, setIsWhatsappFormOpen] = useState(false);
   const [filterValues, setFilterValues] = useState<FilterValues>({
     search: "",
     category: "",
@@ -196,14 +198,14 @@ export default function ContactsPage() {
                   <UserPlus className="-ml-1 mr-2 h-5 w-5" />
                   Add Contact
                 </Button>
-                {/* <Button 
+                 <Button 
                   variant="outline"
                   className="inline-flex items-center"
-                  onClick={() => window.location.href = "/api/import"}
+                  onClick={() => setIsWhatsappFormOpen(true)}
                 >
                   <FileUp className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
-                  Import Excel
-                </Button> */}
+                  Send Whatsapp Message
+                </Button>
                 <Button 
                   variant="outline"
                   className="inline-flex items-center"
@@ -279,6 +281,12 @@ export default function ContactsPage() {
         onClose={() => setIsViewModalOpen(false)}
         onEdit={handleEditContact}
         contact={selectedContact || null}
+      />
+
+      <WhatsappForm 
+        isOpen={isWhatsappFormOpen}
+        onClose={() => setIsWhatsappFormOpen(false)}
+        contacts={contacts}
       />
     </div>
   );

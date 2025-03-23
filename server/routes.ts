@@ -11,6 +11,8 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import ExcelJS from 'exceljs';
+import whatsapp from 'whatsapp-web.js';
+const { Client, LocalAuth } = whatsapp;
 
 // Middleware to check if user is authenticated
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
@@ -39,9 +41,81 @@ const upload = multer({
   }
 });
 
+
+let latestQR = null;
+let isReady = false;
+
+const client = new Client({
+  authStrategy: new LocalAuth(),
+});
+
+client.on('qr', (qr) => {
+  console.log('QR Received');
+  latestQR = qr;
+  isReady = false;
+});
+
+client.on('ready', () => {
+  console.log('✅ WhatsApp Client Ready');
+  latestQR = null; // Clear QR once connected
+  isReady = true;
+});
+
+client.on('auth_failure', () => {
+  console.log('❌ Auth failure. QR will regenerate.');
+  isReady = false;
+});
+
+client.on('disconnected', () => {
+  console.log('❌ WhatsApp disconnected');
+  isReady = false;
+});
+
+client.initialize();
+
+const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
+
+  //===== whatsapp routes ======
+
+  // API for QR fetch
+  app.get('/get-qr', (req, res) => {
+    if (latestQR) {
+      res.json({ qr: latestQR });
+    } else {
+      res.status(404).json({ message: 'No QR available' });
+    }
+  });
+
+  // API for status check
+  app.get('/status', (req, res) => {
+    res.json({ isReady });
+  });
+
+  // ✅ API to send message batch
+  app.post('/send-messages', async (req, res) => {
+    if (!isReady) return res.status(400).json({ message: 'WhatsApp Not Ready' });
+
+    const { numbers, message } = req.body; // numbers = ['919876543210', '919123456789']
+    const results = [];
+
+    for (let i = 0; i < numbers.length; i++) {
+      const num = numbers[i];
+      const chatId = `91${num}@c.us`;
+      try {
+        await client.sendMessage(chatId, message);
+        results.push({ number: num, status: 'Sent' });
+      } catch (err) {
+        results.push({ number: num, status: 'Failed', error: err.message });
+      }
+      const randomDelay = 3000 + Math.random() * 2000; // 3-5 sec delay
+      await delay(randomDelay);
+    }
+    res.json({ results });
+  });
 
   // === CONTACTS ROUTES ===
   
