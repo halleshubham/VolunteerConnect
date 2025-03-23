@@ -301,8 +301,10 @@ const {
                       <div className="flex items-start">
                         <Phone className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
                         <div>
-                          <p className="text-sm text-gray-500">Mobile</p>
-                          <p className="font-medium">{contact.mobile}</p>
+                          <a href={`tel:${contact.mobile}`}>
+                            <p className="text-sm text-gray-500">Mobile</p>
+                            <p className="font-medium">{contact.mobile}</p>
+                          </a>
                         </div>
                       </div>
                       

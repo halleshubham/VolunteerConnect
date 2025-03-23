@@ -13,6 +13,8 @@ import {
 import { z } from "zod";
 import ExcelJS from 'exceljs';
 import whatsapp from 'whatsapp-web.js';
+import fs from 'fs/promises';
+import path from 'path';
 const { Client, LocalAuth } = whatsapp;
 
 // Middleware to check if user is authenticated
@@ -59,6 +61,31 @@ function getClient(userId:any) {
   clients[userId] = client;
   return client;
 }
+
+// ✅ Cleanup function
+async function cleanupSessions() {
+  console.log('Running WhatsApp session cleanup...');
+  for (const userId in clients) {
+    try {
+    const sessionPath = path.resolve(`./sessions/user_${userId}`);
+    
+      // Destroy the client if connected
+      if (clients[userId]) {
+        await clients[userId].destroy();
+        delete clients[userId];
+      }
+
+      // Delete the session folder
+      await fs.rm(sessionPath, { recursive: true, force: true });
+      console.log(`Session cleaned: ${sessionPath}`);
+    } catch (err) {
+      console.error(`Error cleaning session for user ${userId}:`, err);
+    }
+  }
+}
+
+// ✅ Run cleanup every 1 hour
+setInterval(cleanupSessions, 40 * 60 * 1000); // 1 hour
 
 // client.on('qr', (qr) => {
 //   console.log('QR Received');

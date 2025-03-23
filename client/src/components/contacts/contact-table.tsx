@@ -177,7 +177,7 @@ export default function ContactTable({ contacts, onView, onEdit }: ContactTableP
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm text-gray-900">{contact.mobile}</div>
+                      <a href={`tel:${contact.mobile}`}><div className="text-sm text-gray-900">{contact.mobile}</div></a>
                       <div className="text-sm text-gray-500">{contact.email}</div>
                     </TableCell>
                     <TableCell>
