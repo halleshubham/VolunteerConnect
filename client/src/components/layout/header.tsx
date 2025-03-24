@@ -13,15 +13,15 @@ export default function Header({ title, onOpenSidebar }: HeaderProps) {
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
-            <Button
+            {/* <Button
               variant="ghost"
               size="icon"
               className="md:hidden"
               onClick={onOpenSidebar}
             >
               <Menu className="h-6 w-6 text-gray-500" />
-            </Button>
-            <div className="flex items-center">
+            </Button> */}
+            <div className="ml-10 flex items-center">
               <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
             </div>
           </div>
