@@ -670,16 +670,16 @@ app.get('/auth/:userId', async (req, res) => {
             const updateData: any = {};
             
             // Only update if the fields are provided and empty in the DB
-            const email = row.getCell('Email').text?.trim();
+            const email = row.getCell(3).text?.trim();
             if (email && !contact.email) updateData.email = email;
             
-            const area = row.getCell('Area').text?.trim();
+            const area = row.getCell(4).text?.trim();
             if (area && !contact.area) updateData.area = area;
             
-            const city = row.getCell('City').text?.trim();
+            const city = row.getCell(5).text?.trim();
             if (city && !contact.city) updateData.city = city;
             
-            const state = row.getCell('State').text?.trim();
+            const state = row.getCell(6).text?.trim();
             if (state && !contact.state) updateData.state = state;
 
             const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
@@ -761,6 +761,7 @@ app.get('/auth/:userId', async (req, res) => {
               status: "completed", // pending, completed, cancelled
               dueDate: new Date(),
               completedDate: new Date(),
+              createdBy: req.user?.username || "actualadmin"
             };
             await storage.createFollowUp(followUpStatus)
           }
