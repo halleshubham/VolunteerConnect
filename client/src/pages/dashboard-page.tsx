@@ -1,18 +1,24 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Contact, Event } from "@shared/schema";
+import { Contact, Event, Task, TaskFeedback } from "@shared/schema";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UsersRound, CalendarDays, Award, Activity, Users, Phone } from "lucide-react";
+import { UsersRound, CalendarDays, Award, Activity, Users, Phone, Loader2, CheckCircle2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "@/hooks/use-auth";
 import { navigate } from "wouter/use-browser-location";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { TaskCard } from "@/components/dashboard/task-card";
+import { TaskDetailModal } from "@/components/dashboard/task-detail-modal";
 
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { toast } = useToast();
+  const [selectedTask, setSelectedTask] = useState<(Task & { feedbacks: TaskFeedback[] }) | null>(null);
 
   const {user} = useAuth();
 
@@ -24,6 +30,46 @@ export default function DashboardPage() {
   // Fetch events
   const { data: events = [] } = useQuery<Event[]>({
     queryKey: ["/api/events"],
+  });
+
+  // Fetch tasks
+  const { data: tasks = [], isLoading } = useQuery<(Task & { feedbacks: TaskFeedback[] })[]>({
+    queryKey: ["/api/tasks"],
+    queryFn: async () => {
+      const res = await fetch("/api/tasks", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      return res.json();
+    },
+  });
+
+  // Filter tasks before rendering them
+  const pendingTasks = tasks.filter(task => !task.isCompleted);
+
+  // Update task feedback mutation
+  const updateFeedbackMutation = useMutation({
+    mutationFn: async ({ 
+      feedbackId, 
+      data 
+    }: { 
+      feedbackId: number; 
+      data: Partial<TaskFeedback> 
+    }) => {
+      await apiRequest("PUT", `/api/task-feedback/${feedbackId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({
+        title: "Feedback updated",
+        description: "The task feedback has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update feedback: ${error.message}`,
+        variant: "destructive",
+      });
+    },
   });
 
   // Contact metrics
@@ -55,7 +101,7 @@ export default function DashboardPage() {
         
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {/* Stats Section */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
             <Card>
               <CardContent className="pt-5">
                 <div className="flex items-center">
@@ -113,6 +159,58 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-5">
+                <div className="flex items-center">
+                  <div className="rounded-full p-3 bg-indigo-100">
+                    <CheckCircle2 className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Pending Tasks</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {tasks.filter(t => !t.isCompleted).length}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Tasks Section */}
+          <div className="mb-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Pending Tasks</CardTitle>
+                  <CardDescription>Tasks requiring your attention</CardDescription>
+                </div>
+                {/* <Link href="/tasks">
+                  <Button variant="outline">View All</Button>
+                </Link> */}
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : pendingTasks.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No pending tasks.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onClick={setSelectedTask}
+                      />
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -253,6 +351,15 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          <TaskDetailModal
+            isOpen={!!selectedTask}
+            onClose={() => setSelectedTask(null)}
+            task={selectedTask}
+            onUpdateFeedback={async (feedbackId, data) => {
+              await updateFeedbackMutation.mutateAsync({ feedbackId, data });
+            }}
+          />
         </main>
       </div>
     </div>

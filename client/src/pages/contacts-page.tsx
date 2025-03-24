@@ -21,9 +21,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/use-auth";
+import { TaskAssignmentModal } from "@/components/tasks/task-assignment-modal";
 
 export default function ContactsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -31,6 +34,7 @@ export default function ContactsPage() {
   const [isWhatsappFormOpen, setIsWhatsappFormOpen] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
+  const [isTaskAssignmentOpen, setIsTaskAssignmentOpen] = useState(false);
   const [filterValues, setFilterValues] = useState<FilterValues>({
     search: "",
     category: "",
@@ -163,6 +167,39 @@ export default function ContactsPage() {
     },
   });
 
+  // Create task mutation
+  const createTaskMutation = useMutation({
+    mutationFn: async (data: {
+      title: string;
+      description: string;
+      dueDate: Date;
+      tags: string[];
+      assignedTo: string;
+      contacts: number[];
+    }) => {
+      // Ensure dueDate is converted to ISO string before sending
+      return await apiRequest("POST", "/api/tasks", {
+        ...data,
+        dueDate: data.dueDate.toISOString(),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Task created",
+        description: "The task has been assigned successfully.",
+      });
+      setIsTaskAssignmentOpen(false);
+      setSelectedContacts([]);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to create task: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+});
+
   // Handle form submission
   const handleContactSubmit = (data: z.infer<typeof insertContactSchema>) => {
     if (selectedContact) {
@@ -245,6 +282,7 @@ export default function ContactsPage() {
               <h2 className="text-lg font-medium text-gray-900 mb-4 sm:mb-0">All Contacts</h2>
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                 <Button 
+                  variant="outline"
                   onClick={handleAddContact}
                   className="inline-flex items-center"
                 >
@@ -275,7 +313,7 @@ export default function ContactsPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                 <Button 
+                <Button 
                   variant="outline"
                   className="inline-flex items-center"
                   onClick={() => setIsWhatsappFormOpen(true)}
@@ -283,6 +321,13 @@ export default function ContactsPage() {
                   <FileUp className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
                   Send Whatsapp Message
                 </Button>
+                {user?.role === 'admin' && selectedContacts.length > 0 && (
+                  <Button
+                    onClick={() => setIsTaskAssignmentOpen(true)}
+                  >
+                    Assign Task
+                  </Button>
+                )}
                 <Button 
                   variant="outline"
                   className="inline-flex items-center"
@@ -379,6 +424,18 @@ export default function ContactsPage() {
             value
           });
           setIsBulkUpdateOpen(false);
+        }}
+      />
+
+      <TaskAssignmentModal
+        isOpen={isTaskAssignmentOpen}
+        onClose={() => setIsTaskAssignmentOpen(false)}
+        selectedContacts={selectedContacts}
+        onSubmit={async (data) => {
+          await createTaskMutation.mutateAsync({
+            ...data,
+            contacts: selectedContacts.map(c => c.id),
+          });
         }}
       />
     </div>

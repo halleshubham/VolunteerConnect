@@ -35,20 +35,20 @@ import {
 } from "@/components/ui/pagination";
 import { Checkbox } from "@/components/ui/checkbox";
 
-type ContactTableProps = {
+interface ContactTableProps {
   contacts: Contact[];
   onView: (contact: Contact) => void;
   onEdit: (contact: Contact) => void;
   selectedContacts: Contact[];
   onSelectionChange: (contacts: Contact[]) => void;
-};
+}
 
-export default function ContactTable({ 
-  contacts, 
-  onView, 
-  onEdit, 
-  selectedContacts, 
-  onSelectionChange 
+export default function ContactTable({
+  contacts,
+  onView,
+  onEdit,
+  selectedContacts,
+  onSelectionChange,
 }: ContactTableProps) {
   const { toast } = useToast();
   const [page, setPage] = useState(1);
@@ -85,11 +85,26 @@ export default function ContactTable({
     page * itemsPerPage
   );
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      onSelectionChange(paginatedContacts);
+  const allSelected = contacts.length > 0 && contacts.every(contact => 
+    selectedContacts.some(selected => selected.id === contact.id)
+  );
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      // Deselect all filtered contacts
+      const newSelection = selectedContacts.filter(selected => 
+        !contacts.some(contact => contact.id === selected.id)
+      );
+      onSelectionChange(newSelection);
     } else {
-      onSelectionChange([]);
+      // Select all filtered contacts while keeping other selections
+      const newSelection = [
+        ...selectedContacts.filter(selected => 
+          !contacts.some(contact => contact.id === selected.id)
+        ),
+        ...contacts
+      ];
+      onSelectionChange(newSelection);
     }
   };
 
@@ -169,17 +184,16 @@ export default function ContactTable({
 
   return (
     <>
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-white shadow-sm rounded-lg border">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[50px]">
-                  <Checkbox 
-                    checked={paginatedContacts.length > 0 && paginatedContacts.every(contact => 
-                      selectedContacts.some(sc => sc.id === contact.id)
-                    )}
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={allSelected}
                     onCheckedChange={handleSelectAll}
+                    aria-label="Select all contacts"
                   />
                 </TableHead>
                 <TableHead>Name</TableHead>
@@ -188,7 +202,7 @@ export default function ContactTable({
                 <TableHead>Category</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Activity Score</TableHead>
-                <TableHead>Assignment</TableHead>
+                <TableHead>FUP Assignment</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -200,6 +214,7 @@ export default function ContactTable({
                       <Checkbox 
                         checked={selectedContacts.some(sc => sc.id === contact.id)}
                         onCheckedChange={(checked) => handleSelectContact(!!checked, contact)}
+                        aria-label={`Select ${contact.name}`}
                       />
                     </TableCell>
                     <TableCell>

@@ -8,7 +8,10 @@ import {
   insertEventSchema, 
   insertFollowUpSchema,
   Contact, 
-  insertActivitySchema
+  insertActivitySchema,
+  insertTaskSchema,
+  User,
+  TaskFeedback
 } from "@shared/schema";
 import { z } from "zod";
 import ExcelJS from 'exceljs';
@@ -240,6 +243,74 @@ app.get('/auth/:userId', async (req, res) => {
       }
       
       res.json(contact);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Get contacts by ID list
+  app.get("/api/contactsByIdList", isAuthenticated, async (req, res, next) => {
+    try {
+      const { ids } = req.query;
+  
+      // Check if ids is provided
+      if (!ids || typeof ids !== 'string') {
+        return res.status(400).json({ 
+          message: "ids query parameter is required and must be a comma-separated string" 
+        });
+      }
+  
+      // Parse the comma-separated string into an array of numbers
+      const idsArray = ids
+        .split(',')
+        .map(id => parseInt(id.trim()))
+        .filter(id => !isNaN(id)); // Filter out invalid numbers
+  
+      // Check if we have any valid IDs
+      if (idsArray.length === 0) {
+        return res.status(400).json({ 
+          message: "No valid contact IDs provided" 
+        });
+      }
+  
+      // Get contacts
+      const contacts = await storage.getContactsByIds(idsArray);
+      res.json(contacts);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Get contact tasks
+  app.get("/api/contacts/:id/tasks", isAuthenticated, async (req, res, next) => {
+    try {
+      const contactId = parseInt(req.params.id);
+      if (isNaN(contactId)) {
+        return res.status(400).json({ message: "Invalid contact ID" });
+      }
+  
+      const taskFeedbacks = await storage.getContactTaskFeedbacks(contactId);
+  
+      res.json(taskFeedbacks);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Add this with other API routes
+  app.get("/api/users", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admin users can fetch all users
+      if (currentUser.role !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only admins can view all users" 
+        });
+      }
+
+      const users = await storage.getUsers();
+      res.json(users);
     } catch (error) {
       next(error);
     }
@@ -705,6 +776,149 @@ app.get('/auth/:userId', async (req, res) => {
       next(error);
     }
   });
+
+  // === TASKS ROUTES ===
+  // Add task routes
+  app.post("/api/tasks", isAuthenticated, async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can create tasks" });
+      }
+
+      // Parse and validate the request body
+      const parsedData = insertTaskSchema.parse({
+        ...req.body,
+        createdBy: user.username,
+        // Ensure dueDate is in ISO string format
+        dueDate: new Date(req.body.dueDate).toISOString(),
+      });
+
+      const task = await storage.createTask(parsedData);
+
+      // Create task feedbacks for each contact
+      const feedbacks = req.body.contacts.map((contactId: number) => ({
+        taskId: task.id,
+        contactId,
+        assignedTo: parsedData.assignedTo,
+      }));
+
+      await storage.createTaskFeedbacks(feedbacks);
+
+      res.json(task);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors
+        });
+      }
+      next(error);
+    }
+  });
+
+  app.get("/api/tasks", isAuthenticated, async (req, res, next) => {
+  try {
+    const user = req.user as User;
+    
+    const tasks = user.role == 'admin' ? await storage.getAllTasks(): await storage.getUserTasks(user.username);
+
+    res.json(tasks);
+  } catch (error) {
+    next(error);
+  }
+  });
+
+  // Add these routes after your existing task routes
+app.put("/api/task-feedback/:id", isAuthenticated, async (req, res, next) => {
+  try {
+    const feedbackId = parseInt(req.params.id);
+    if (isNaN(feedbackId)) {
+      return res.status(400).json({ message: "Invalid feedback ID" });
+    }
+
+    // Get the current feedback to check permissions
+    const feedback = await storage.getTaskFeedbackWithTask(feedbackId);
+
+    if (!feedback || !feedback.length) {
+      return res.status(404).json({ message: "Feedback not found" });
+    }
+
+    const user = req.user as User;
+    // Check if user is assigned to this task or is admin
+    if (user.role !== 'admin' && feedback[0].taskFeedback.assignedTo !== user.username) {
+      return res.status(403).json({ 
+        message: "You don't have permission to update this feedback" 
+      });
+    }
+
+    // Update the feedback
+    const data: Partial<TaskFeedback> = {};
+    if (typeof req.body.isCompleted === 'boolean') {
+      data.isCompleted = req.body.isCompleted;
+    }
+    if (typeof req.body.feedback === 'string') {
+      data.feedback = req.body.feedback;
+    }
+
+    const updatedFeedback = await storage.updateTaskFeedback(feedbackId, data);
+    
+    // Update task completion status
+    await storage.updateTaskCompletionStatus(feedback[0].taskFeedback.taskId);
+
+    res.json(updatedFeedback);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add a route to get task feedback for a specific task
+// app.get("/api/tasks/:taskId/feedback", isAuthenticated, async (req, res, next) => {
+//   try {
+//     const taskId = parseInt(req.params.taskId);
+//     if (isNaN(taskId)) {
+//       return res.status(400).json({ message: "Invalid task ID" });
+//     }
+
+//     const user = req.user as User;
+    
+//     // Get the task to check permissions
+//     const task = await db
+//       .select()
+//       .from(tasks)
+//       .where(eq(tasks.id, taskId))
+//       .limit(1);
+
+//     if (!task.length) {
+//       return res.status(404).json({ message: "Task not found" });
+//     }
+
+//     // Check if user is assigned to this task or is admin
+//     if (user.role !== 'admin' && task[0].assignedTo !== user.username) {
+//       return res.status(403).json({ 
+//         message: "You don't have permission to view this task's feedback" 
+//       });
+//     }
+
+//     const feedbacks = await db
+//       .select({
+//         feedback: taskFeedback,
+//         contact: {
+//           id: contacts.id,
+//           name: contacts.name,
+//           mobile: contacts.mobile,
+//           city: contacts.city,
+//         },
+//       })
+//       .from(taskFeedback)
+//       .where(eq(taskFeedback.taskId, taskId))
+//       .leftJoin(contacts, eq(taskFeedback.contactId, contacts.id));
+
+//     res.json(feedbacks);
+//   } catch (error) {
+//     next(error);
+//   }
+// });
 
   // === IMPORT/EXPORT ROUTES ===
   

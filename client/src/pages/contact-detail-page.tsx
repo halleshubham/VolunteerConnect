@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Activity, Contact, FollowUp, insertActivitySchema, insertFollowUpSchema } from "@shared/schema";
+import { Activity, Contact, FollowUp, insertActivitySchema, insertFollowUpSchema, Task, TaskFeedback } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import Sidebar from "@/components/layout/sidebar";
@@ -22,7 +22,8 @@ import {
   Edit, 
   Plus, 
   Clock, 
-  Loader2 
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
 import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
@@ -35,11 +36,20 @@ export default function ContactDetailPage() {
   const [isContactFormOpen, setIsContactFormOpen] = useState(false);
   const [isFollowUpFormOpen, setIsFollowUpFormOpen] = useState(false);
   const [isActivityFormOpen, setIsActivityFormOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("events");
+  const [activeTab, setActiveTab] = useState("tasks");
 
   const {user} = useAuth();
 
   const contactId = params?.id ? parseInt(params.id) : null;
+
+  // Fetch contact's feedbacks
+  const { 
+    data: taskFeedbacks = [], 
+    isLoading: isTaskFeedbacksLoading 
+  } = useQuery<(TaskFeedback & { task: Task })[]>({
+    queryKey: [`/api/contacts/${contactId}/tasks`],
+    enabled: !!contactId,
+  });
 
   // Fetch contact details
   const { 
@@ -375,20 +385,26 @@ const {
               <Card>
                 <CardContent className="p-0">
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="w-full rounded-none border-b border-gray-200">
-                      <TabsTrigger value="events" className="flex-1">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Events
-                      </TabsTrigger>
-                      <TabsTrigger value="activities" className="flex-1">
-                        <Clock className="h-4 w-4 mr-2" />
-                        Activities
-                      </TabsTrigger>
-                      <TabsTrigger value="followups" className="flex-1">
-                        <Clock className="h-4 w-4 mr-2" />
-                        Follow-ups
-                      </TabsTrigger>
-                    </TabsList>
+                    <div className="overflow-x-auto">
+                      <TabsList className="w-full min-w-[600px] rounded-none border-b border-gray-200">
+                        <TabsTrigger value="tasks" className="flex-1">
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Call Feedbacks
+                        </TabsTrigger>
+                        <TabsTrigger value="activities" className="flex-1">
+                          <Clock className="h-4 w-4 mr-2" />
+                          Activities
+                        </TabsTrigger>
+                        <TabsTrigger value="followups" className="flex-1">
+                          <Clock className="h-4 w-4 mr-2" />
+                          Follow-ups
+                        </TabsTrigger>
+                        <TabsTrigger value="events" className="flex-1">
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Events
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
                     
                     <TabsContent value="events" className="p-4 pt-6">
                     <div className="space-y-4">
@@ -508,6 +524,58 @@ const {
                       ) : (
                         <div className="text-center py-4 text-gray-500">
                           No follow-up records
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="tasks" className="p-4 pt-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-medium">Call Update</h3>
+                      </div>
+                      
+                      {isTaskFeedbacksLoading ? (
+                        <div className="text-center py-4">Loading...</div>
+                      ) : taskFeedbacks?.length > 0 ? (
+                        <div className="space-y-4">
+                          {taskFeedbacks.map((feedback) => (
+                            <Card key={feedback.id}>
+                              <CardContent className="p-4">
+                                <div className="flex justify-between items-start">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center space-x-2">
+                                      <h4 className="font-medium">{feedback.task.title}</h4>
+                                      <Badge variant={feedback.isCompleted ? "success" : "secondary"}>
+                                        {feedback.isCompleted ? "Completed" : "Pending"}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-500">
+                                      Assigned to: {feedback.assignedTo}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                      Due: {new Date(feedback.task.dueDate).toLocaleDateString()}
+                                    </p>
+                                    {feedback.feedback && (
+                                      <div className="mt-2">
+                                        <p className="text-sm text-gray-500">Feedback:</p>
+                                        <p className="text-gray-700 whitespace-pre-line mt-1">
+                                          {feedback.feedback}
+                                        </p>
+                                      </div>
+                                    )}
+                                    {feedback.completedAt && (
+                                      <p className="text-sm text-gray-500">
+                                        Completed on: {new Date(feedback.completedAt).toLocaleDateString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-gray-500">
+                          No tasks assigned
                         </div>
                       )}
                     </TabsContent>

@@ -7,7 +7,8 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role")
+  role: text("role"),
+  mobile: text("mobile"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -143,6 +144,7 @@ export const tasks = pgTable("tasks", {
   createdBy: text("created_by").notNull(), // username of admin who created
 });
 
+//below is the schema for task_feedback
 export const taskFeedback = pgTable("task_feedback", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").references(() => tasks.id, { onDelete: "cascade" }),
@@ -154,7 +156,10 @@ export const taskFeedback = pgTable("task_feedback", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertTaskSchema = createInsertSchema(tasks).omit({
+// Update the task schema to handle date strings
+export const insertTaskSchema = createInsertSchema(tasks, {
+  dueDate: z.string().transform((str) => new Date(str)), // Convert string to Date
+}).omit({
   id: true,
   createdAt: true,
   isCompleted: true,

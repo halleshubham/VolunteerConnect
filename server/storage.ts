@@ -1,4 +1,4 @@
-import { activities, Activity, contacts, InsertActivity, type Contact, type InsertContact } from "@shared/schema";
+import { activities, Activity, contacts, InsertActivity, InsertTask, InsertTaskFeedback, Task, TaskFeedback, taskFeedback, tasks, type Contact, type InsertContact } from "@shared/schema";
 import { events, type Event, type InsertEvent } from "@shared/schema";
 import { attendance, type Attendance, type InsertAttendance } from "@shared/schema";
 import { followUps, type FollowUp, type InsertFollowUp } from "@shared/schema";
@@ -534,6 +534,177 @@ export class DatabaseStorage implements IStorage {
       return await(query as any);
     }
   }
+
+  //tasks-feedbacks
+async updateTaskFeedback(id: number, data: Partial<TaskFeedback>): Promise<TaskFeedback | undefined> {
+  const [updatedFeedback] = await db
+    .update(taskFeedback)
+    .set({
+      ...data,
+      // If marking as completed, set completedAt
+      ...(data.isCompleted && { completedAt: new Date() }),
+      // If marking as incomplete, clear completedAt
+      ...(!data.isCompleted && { completedAt: null }),
+    })
+    .where(eq(taskFeedback.id, id))
+    .returning();
+  
+  return updatedFeedback;
+}
+
+// Add to DatabaseStorage class
+async getContactsByIds(ids: number[]): Promise<Contact[]> {
+  const validIds = ids.filter(id => 
+    typeof id === 'number' && 
+    !isNaN(id) && 
+    Number.isInteger(id) && 
+    id > 0
+  );
+
+  if (validIds.length === 0) {
+    return [];
+  }
+
+  const recontacts = await db
+    .select()
+    .from(contacts)
+    .where(inArray(contacts.id, ids));
+
+  return recontacts;
+}
+
+// Add to DatabaseStorage class
+async getContactTaskFeedbacks(contactId: number): Promise<(TaskFeedback & { task: Task })[]> {
+  const results = await db
+    .select({
+      feedback: taskFeedback,
+      task: tasks,
+    })
+    .from(taskFeedback)
+    .where(eq(taskFeedback.contactId, contactId))
+    .leftJoin(tasks, eq(taskFeedback.taskId, tasks.id))
+    .orderBy(desc(tasks.dueDate));
+
+  return results
+    .filter(({ task }) => task !== null)
+    .map(({ feedback, task }) => ({
+      ...feedback,
+      task: task!,
+    }));
+}
+
+// Add this method to DatabaseStorage class
+async getTaskFeedbackWithTask(feedbackId: number): Promise<[{ taskFeedback: TaskFeedback; task: Task }] | undefined> {
+  const result = await db
+    .select({
+      taskFeedback: taskFeedback,
+      task: tasks,
+    })
+    .from(taskFeedback)
+    .where(eq(taskFeedback.id, feedbackId))
+    .leftJoin(tasks, eq(taskFeedback.taskId, tasks.id))
+    .limit(1);
+
+  if (!result[0].task) {
+    throw new Error("Task not found for the given feedback ID");
+  }
+  return result as [{ taskFeedback: TaskFeedback; task: Task }];
+}
+
+// Add this method to check if all feedbacks are completed
+async updateTaskCompletionStatus(taskId: number): Promise<void> {
+  const feedbacks = await db
+    .select()
+    .from(taskFeedback)
+    .where(eq(taskFeedback.taskId, taskId));
+
+  const allCompleted = feedbacks.every(f => f.isCompleted);
+
+  await db
+    .update(tasks)
+    .set({ isCompleted: allCompleted })
+    .where(eq(tasks.id, taskId));
+}
+
+  // Add this method to DatabaseStorage class
+  async getUsers(): Promise<{id:number, username: string, role: string | null, mobile: string | null}[]> {
+      const userList = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          role: users.role,
+          mobile: users.mobile
+        })
+        .from(users)
+        .orderBy(users.username);
+      
+      return userList;
+    }
+
+  // Add to DatabaseStorage class
+  async createTask(task: InsertTask): Promise<Task> {
+    const [newTask] = await db
+      .insert(tasks)
+      .values(task)
+      .returning();
+    return newTask;
+  }
+
+  async createTaskFeedbacks(feedbacks: InsertTaskFeedback[]): Promise<TaskFeedback[]> {
+    const result = await db
+      .insert(taskFeedback)
+      .values(feedbacks)
+      .returning();
+    return result;
+  }
+
+  async getUserTasks(username: string): Promise<(Task & { feedbacks: TaskFeedback[] })[]> {
+    const result = await db
+      .select({
+        task: tasks,
+        feedbacks: taskFeedback,
+      })
+      .from(tasks)
+      .leftJoin(taskFeedback, eq(tasks.id, taskFeedback.taskId))
+      .where(eq(tasks.assignedTo, username));
+
+    // Group feedbacks by task
+    const tasksMap = new Map();
+    result.forEach(({ task, feedbacks }) => {
+      if (!tasksMap.has(task.id)) {
+        tasksMap.set(task.id, { ...task, feedbacks: [] });
+      }
+      if (feedbacks) {
+        tasksMap.get(task.id).feedbacks.push(feedbacks);
+      }
+    });
+
+    return Array.from(tasksMap.values());
+  }
+
+  async getAllTasks(): Promise<(Task & { feedbacks: TaskFeedback[] })[]> {
+    const result = await db
+      .select({
+        task: tasks,
+        feedbacks: taskFeedback,
+      })
+      .from(tasks)
+      .leftJoin(taskFeedback, eq(tasks.id, taskFeedback.taskId));
+
+    // Group feedbacks by task
+    const tasksMap = new Map();
+    result.forEach(({ task, feedbacks }) => {
+      if (!tasksMap.has(task.id)) {
+        tasksMap.set(task.id, { ...task, feedbacks: [] });
+      }
+      if (feedbacks) {
+        tasksMap.get(task.id).feedbacks.push(feedbacks);
+      }
+    });
+
+    return Array.from(tasksMap.values());
+  }
+
 }
 
 export const storage = new DatabaseStorage();
