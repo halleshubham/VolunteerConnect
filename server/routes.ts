@@ -426,6 +426,102 @@ app.get('/auth/:userId', async (req, res) => {
     }
   });
 
+  // Add this after your other contact routes
+  app.put("/api/contacts-bulk/update", isAuthenticated, async (req, res, next) => {
+
+    // return res.status(200).json({ message: "Not implemented", req: req.body });
+    try {
+      const { contactIds, field, value } = req.body;
+
+      // Validate request body
+      if (!Array.isArray(contactIds) || contactIds.length === 0) {
+        return res.status(400).json({ message: "contactIds must be a non-empty array" });
+      }
+      if (!field || typeof field !== "string") {
+        return res.status(400).json({ message: "field must be a string" });
+      }
+      if (!value || typeof value !== "string") {
+        return res.status(400).json({ message: "value must be a string" });
+      }
+
+      // Validate field values based on schema
+      const allowedFields = ["category", "priority", "status", "team", "occupation"];
+      if (!allowedFields.includes(field)) {
+        return res.status(400).json({ 
+          message: `Field must be one of: ${allowedFields.join(", ")}`
+        });
+      }
+
+      // Validate values based on field
+      const allowedValues: Record<string, string[]> = {
+        category: ["volunteer", "donor", "partner", "attendee"],
+        priority: ["high", "medium", "low"],
+        status: ["active", "inactive", "follow-up"],
+        team: [
+          "lokayat-general",
+          "abhivyakti",
+          "mahila-jagar-samiti",
+          "congress-party",
+          "ncp-party",
+          "shivsena-party",
+          "other-organisations",
+          "congress-jj-shakti",
+          "maharashtra-level"
+        ],
+        occupation: [
+          "school teacher",
+          "professor",
+          "doctor",
+          "lawyer",
+          "engineer",
+          "worker",
+          "retired",
+          "student",
+          "professional",
+          "other"
+        ]
+      };
+
+      if (!allowedValues[field].includes(value)) {
+        return res.status(400).json({
+          message: `Invalid value for ${field}. Must be one of: ${allowedValues[field].join(", ")}`
+        });
+      }
+
+      // Perform bulk update
+      const updatedCount = await storage.bulkUpdateContacts(contactIds, field, value);
+
+      res.json({ 
+        message: `Successfully updated ${updatedCount} contacts`,
+        updated: updatedCount
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Add bulk delete route
+  app.delete("/api/contacts-bulk/delete", isAuthenticated, async (req, res, next) => {
+    try {
+      const { contactIds } = req.body;
+
+      // Validate request body
+      if (!Array.isArray(contactIds) || contactIds.length === 0) {
+        return res.status(400).json({ message: "contactIds must be a non-empty array" });
+      }
+
+      // Perform bulk delete
+      const deletedCount = await storage.bulkDeleteContacts(contactIds);
+
+      res.json({ 
+        message: `Successfully deleted ${deletedCount} contacts`,
+        deleted: deletedCount
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // === EVENTS ROUTES ===
   // Get sample Excel template
   app.get("/api/events/sample-template", (_req, res) => {

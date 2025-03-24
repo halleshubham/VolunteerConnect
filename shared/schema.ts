@@ -127,3 +127,46 @@ export const insertActivitySchema = createInsertSchema(activities).omit({ id: tr
 
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Activity = typeof activities.$inferSelect;
+
+
+//TASKS
+// Add these after existing schemas
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  dueDate: timestamp("due_date").notNull(),
+  tags: text("tags").array(),
+  isCompleted: boolean("is_completed").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  assignedTo: text("assigned_to").notNull(), // username of assigned user
+  createdBy: text("created_by").notNull(), // username of admin who created
+});
+
+export const taskFeedback = pgTable("task_feedback", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  contactId: integer("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
+  assignedTo: text("assigned_to").notNull(),
+  isCompleted: boolean("is_completed").default(false),
+  feedback: text("feedback"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({
+  id: true,
+  createdAt: true,
+  isCompleted: true,
+});
+
+export const insertTaskFeedbackSchema = createInsertSchema(taskFeedback).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+export type Task = typeof tasks.$inferSelect;
+export type TaskFeedback = typeof taskFeedback.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type InsertTaskFeedback = z.infer<typeof insertTaskFeedbackSchema>;

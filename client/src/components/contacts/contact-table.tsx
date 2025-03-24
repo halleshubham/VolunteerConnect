@@ -33,14 +33,23 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from "@/components/ui/pagination";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type ContactTableProps = {
   contacts: Contact[];
   onView: (contact: Contact) => void;
   onEdit: (contact: Contact) => void;
+  selectedContacts: Contact[];
+  onSelectionChange: (contacts: Contact[]) => void;
 };
 
-export default function ContactTable({ contacts, onView, onEdit }: ContactTableProps) {
+export default function ContactTable({ 
+  contacts, 
+  onView, 
+  onEdit, 
+  selectedContacts, 
+  onSelectionChange 
+}: ContactTableProps) {
   const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -75,6 +84,22 @@ export default function ContactTable({ contacts, onView, onEdit }: ContactTableP
     (page - 1) * itemsPerPage,
     page * itemsPerPage
   );
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      onSelectionChange(paginatedContacts);
+    } else {
+      onSelectionChange([]);
+    }
+  };
+
+  const handleSelectContact = (checked: boolean, contact: Contact) => {
+    if (checked) {
+      onSelectionChange([...selectedContacts, contact]);
+    } else {
+      onSelectionChange(selectedContacts.filter(c => c.id !== contact.id));
+    }
+  };
 
   // Get category badge style
   const getCategoryBadge = (category: string) => {
@@ -149,6 +174,14 @@ export default function ContactTable({ contacts, onView, onEdit }: ContactTableP
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]">
+                  <Checkbox 
+                    checked={paginatedContacts.length > 0 && paginatedContacts.every(contact => 
+                      selectedContacts.some(sc => sc.id === contact.id)
+                    )}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Contact Info</TableHead>
                 <TableHead>Location</TableHead>
@@ -163,6 +196,12 @@ export default function ContactTable({ contacts, onView, onEdit }: ContactTableP
               {paginatedContacts.length > 0 ? (
                 paginatedContacts.map((contact) => (
                   <TableRow key={contact.id} className="hover:bg-gray-50">
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedContacts.some(sc => sc.id === contact.id)}
+                        onCheckedChange={(checked) => handleSelectContact(!!checked, contact)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">

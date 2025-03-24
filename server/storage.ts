@@ -6,7 +6,7 @@ import { users, type User, type InsertUser } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
-import { eq, and, ilike, desc, asc, or, sql } from "drizzle-orm";
+import { eq, and, ilike, desc, asc, or, sql, inArray } from "drizzle-orm";
 import { Pool } from "@neondatabase/serverless";
 import dotenv from 'dotenv';
 dotenv.config();
@@ -52,6 +52,10 @@ export interface IStorage {
   updateActivity(id: number, activity: Partial<Activity>): Promise<Activity | undefined>;
   deleteActivity(id: number): Promise<boolean>;
 
+  //Bulk Operations
+  bulkUpdateContacts(contactIds: number[], field: string, value: string): Promise<number>;
+  bulkDeleteContacts(contactIds: number[]): Promise<number>;
+
   // Search and filter
   searchContacts(query: string): Promise<Contact[]>;
   filterContacts(filters: {
@@ -75,6 +79,9 @@ export class DatabaseStorage implements IStorage {
       conObject: { connectionString: "postgresql://postgres:@localhost:5432/volunteerconnect" },
       createTableIfMissing: true,
     });
+  }
+  async deleteActivity(id: number): Promise<boolean> {
+    throw new Error("Method not implemented.");
   }
 
   // User operations
@@ -109,7 +116,7 @@ export class DatabaseStorage implements IStorage {
       if (filters.city) conditions.push(eq(contacts.city, filters.city));
       
       if (conditions.length > 0) {
-        query = query.where(and(...conditions));
+        query = (query as any).where(and(...conditions));
       }
     }
     
@@ -342,6 +349,71 @@ export class DatabaseStorage implements IStorage {
     return updatedActivity;
   }
 
+  async bulkUpdateContacts(contactIds: number[], field: string, value: string): Promise<number> {
+      // Validate field name exists in contacts table
+      if (!(field in contacts)) {
+        throw new Error(`Invalid field: ${field}`);
+      }
+  
+    // Validate and filter out invalid IDs
+    const validIds = contactIds.filter(id => 
+      typeof id === 'number' && 
+      !isNaN(id) && 
+      Number.isInteger(id) && 
+      id > 0
+    );
+  
+    if (validIds.length === 0) {
+      throw new Error('No valid contact IDs provided');
+    }
+  
+    // ✅ Use sql.array() for clean, parameterized array binding
+    const result = await db
+    .update(contacts)
+    .set({ [field]: value })
+    .where(inArray(contacts.id, validIds))
+    .returning();
+  
+    return result.length;
+  }
+  
+  async bulkDeleteContacts(contactIds: number[]): Promise<number> {
+    // Validate and filter out invalid IDs
+    const validIds = contactIds.filter(id => 
+      typeof id === 'number' && 
+      !isNaN(id) && 
+      Number.isInteger(id) && 
+      id > 0
+    );
+  
+    if (validIds.length === 0) {
+      throw new Error('No valid contact IDs provided');
+    }
+  
+    // Start a transaction to ensure all operations complete or none do
+    return await db.transaction(async (tx) => {
+      // Delete related records first
+      await tx
+        .delete(attendance)
+        .where(inArray(attendance.contactId, validIds));
+  
+      await tx
+        .delete(activities)
+        .where(inArray(activities.contactId, validIds));
+  
+      await tx
+        .delete(followUps)
+        .where(inArray(followUps.contactId, validIds));
+  
+      // Now delete the contacts
+      const result = await tx
+        .delete(contacts)
+        .where(inArray(contacts.id, validIds))
+        .returning();
+  
+      return result.length;
+    });
+  }
 
   // Search and filter
   async searchContacts(query: string): Promise<Contact[]> {
@@ -413,14 +485,25 @@ export class DatabaseStorage implements IStorage {
 
       
       // if (conditions.length > 0) {
-      //   query = query.where(and(...conditions));
+      //   query = (query as any).where(and(...conditions));
       // }
       
       // return await query.orderBy(desc(contacts.createdAt));
       // Base query with LEFT JOIN to count activities
       let query = db
       .select({
-        ...contacts,
+        id: contacts.id,
+        name: contacts.name,
+        mobile: contacts.mobile,
+        email: contacts.email,
+        city: contacts.city,
+        area: contacts.area,
+        category: contacts.category,
+        priority: contacts.priority,
+        status: contacts.status,
+        occupation: contacts.occupation,
+        assignedTo: contacts.assignedTo,
+        createdAt: contacts.createdAt,
         activityScore: sql<number>`COALESCE(COUNT(activities.id), 0)`.as('activityScore'),
       })
       .from(contacts)
@@ -442,13 +525,13 @@ export class DatabaseStorage implements IStorage {
       `);
 
       if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = (query as any).where(and(...conditions));
       }
 
       // Group by contact to ensure correct count
-      query = query.groupBy(contacts.id).orderBy(desc(contacts.createdAt));
+      query = (query as any).groupBy(contacts.id).orderBy(desc(contacts.createdAt));
 
-      return await query;
+      return await(query as any);
     }
   }
 }

@@ -14,6 +14,13 @@ import { Loader2, UserPlus, FileUp, FileDown } from "lucide-react";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import WhatsappForm from "@/components/contacts/whatsapp-form";
+import { BulkUpdateModal } from "@/components/contacts/bulk-update-modal";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export default function ContactsPage() {
   const { toast } = useToast();
@@ -22,6 +29,8 @@ export default function ContactsPage() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isWhatsappFormOpen, setIsWhatsappFormOpen] = useState(false);
+  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
+  const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
   const [filterValues, setFilterValues] = useState<FilterValues>({
     search: "",
     category: "",
@@ -105,6 +114,50 @@ export default function ContactsPage() {
       toast({
         title: "Error",
         description: `Failed to update contact: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk update mutation
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ contactIds, field, value }: { contactIds: number[], field: string, value: string }) => {
+      await apiRequest("PUT", `/api/contacts-bulk/update`, { contactIds, field, value });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts-bulk"] });
+      toast({
+        title: "Contacts updated",
+        description: "Selected contacts have been updated successfully.",
+      });
+      setSelectedContacts([]);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to update contacts: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (contactIds: number[]) => {
+      await apiRequest("DELETE", `/api/contacts-bulk/delete`, { contactIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts-bulk"] });
+      toast({
+        title: "Contacts deleted",
+        description: "Selected contacts have been deleted successfully.",
+      });
+      setSelectedContacts([]);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete contacts: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -198,6 +251,30 @@ export default function ContactsPage() {
                   <UserPlus className="-ml-1 mr-2 h-5 w-5" />
                   Add Contact
                 </Button>
+                {selectedContacts.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        Bulk Actions ({selectedContacts.length})
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setIsBulkUpdateOpen(true)}>
+                        Update Selected
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-red-600"
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete ${selectedContacts.length} contacts?`)) {
+                            bulkDeleteMutation.mutate(selectedContacts.map(c => c.id));
+                          }
+                        }}
+                      >
+                        Delete Selected
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
                  <Button 
                   variant="outline"
                   className="inline-flex items-center"
@@ -262,6 +339,8 @@ export default function ContactsPage() {
               contacts={contacts} 
               onView={handleViewContact} 
               onEdit={handleEditContact}
+              selectedContacts={selectedContacts}
+              onSelectionChange={setSelectedContacts}
             />
           )}
         </main>
@@ -287,6 +366,20 @@ export default function ContactsPage() {
         isOpen={isWhatsappFormOpen}
         onClose={() => setIsWhatsappFormOpen(false)}
         contacts={contacts}
+      />
+
+      <BulkUpdateModal
+        isOpen={isBulkUpdateOpen}
+        onClose={() => setIsBulkUpdateOpen(false)}
+        selectedContacts={selectedContacts}
+        onUpdate={async (field, value) => {
+          await bulkUpdateMutation.mutateAsync({
+            contactIds: selectedContacts.map(c => c.id),
+            field,
+            value
+          });
+          setIsBulkUpdateOpen(false);
+        }}
       />
     </div>
   );
