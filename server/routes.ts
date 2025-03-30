@@ -818,15 +818,29 @@ app.get('/auth/:userId', async (req, res) => {
   });
 
   app.get("/api/tasks", isAuthenticated, async (req, res, next) => {
-  try {
-    const user = req.user as User;
-    
-    const tasks = user.role == 'admin' ? await storage.getAllTasks(): await storage.getUserTasks(user.username);
-
-    res.json(tasks);
-  } catch (error) {
-    next(error);
-  }
+    try {
+      const user = req.user as User;
+      const { status, assignedTo, fromDate, toDate } = req.query;
+  
+      const filters: any = {};
+      
+      // Add filters based on query params
+      if (status === 'completed') filters.isCompleted = true;
+      if (status === 'pending') filters.isCompleted = false;
+      if (assignedTo && assignedTo !== 'all') filters.assignedTo = assignedTo as string;
+      if (fromDate) filters.fromDate = new Date(fromDate as string);
+      if (toDate) filters.toDate = new Date(toDate as string);
+  
+      // Only admins can see all tasks, others see only their assigned tasks
+      if (user.role !== 'admin') {
+        filters.assignedTo = user.username;
+      }
+  
+      const tasks = await storage.getAllTasksWithFilters(filters);
+      res.json(tasks);
+    } catch (error) {
+      next(error);
+    }
   });
 
   // Add these routes after your existing task routes

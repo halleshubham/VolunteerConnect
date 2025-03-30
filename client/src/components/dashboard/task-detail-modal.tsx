@@ -16,6 +16,7 @@ interface TaskDetailModalProps {
   onClose: () => void;
   task: (Task & { feedbacks: TaskFeedback[] }) | null;
   onUpdateFeedback: (feedbackId: number, data: Partial<TaskFeedback>) => Promise<void>;
+  onCloseComplete?: () => void;  // Add this new prop
 }
 
 export function TaskDetailModal({
@@ -23,6 +24,7 @@ export function TaskDetailModal({
   onClose,
   task,
   onUpdateFeedback,
+  onCloseComplete,
 }: TaskDetailModalProps) {
   const queryClient = useQueryClient();
   const [submittedFeedbacks, setSubmittedFeedbacks] = useState<Set<number>>(new Set());
@@ -30,6 +32,13 @@ export function TaskDetailModal({
     feedback: string;
     isCompleted: boolean;
   }>>({});
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose();
+      onCloseComplete?.();
+    }
+  };
 
   // Reset submitted feedbacks when modal opens/closes
   useEffect(() => {
@@ -79,7 +88,16 @@ export function TaskDetailModal({
     });
 
     // Add to submitted feedbacks
-    setSubmittedFeedbacks(prev => new Set([...prev, feedbackId]));
+    if (localFeedback.isCompleted) {
+      setSubmittedFeedbacks(prev => new Set([...prev, feedbackId]));
+    } else {
+      // If feedback is not completed, remove from submitted feedbacks
+      setSubmittedFeedbacks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(feedbackId);
+        return newSet;
+      });
+    }
 
     // Refresh the task data
     queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -96,7 +114,7 @@ export function TaskDetailModal({
   const progress = (completedCount / task.feedbacks.length) * 100;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader className="sticky top-0 z-10 bg-white border-b pb-4">
           <DialogTitle>{task.title}</DialogTitle>

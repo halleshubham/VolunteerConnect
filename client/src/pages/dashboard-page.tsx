@@ -359,6 +359,9 @@ export default function DashboardPage() {
             onUpdateFeedback={async (feedbackId, data) => {
               await updateFeedbackMutation.mutateAsync({ feedbackId, data });
             }}
+            onCloseComplete={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+            }}
           />
         </main>
       </div>

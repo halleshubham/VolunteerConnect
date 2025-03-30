@@ -11,7 +11,9 @@ import { Loader2, Search, Filter, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { TaskDetailModal } from "@/components/dashboard/task-detail-modal";
 import { TaskAssignmentModal } from "@/components/tasks/task-assignment-modal";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/sidebar";
+import { User } from "@shared/schema";
 
 export default function TasksPage() {
   const { toast } = useToast();
@@ -40,6 +42,10 @@ export default function TasksPage() {
       if (!response.ok) throw new Error("Failed to fetch tasks");
       return response.json();
     },
+  });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
   });
 
   // Filter tasks by search term
@@ -133,26 +139,45 @@ export default function TasksPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white border-b">
           <div className="p-4 flex items-center justify-between gap-4">
-            <div className="flex-1 flex items-center gap-4">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Search tasks..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Select value={filters.status} onValueChange={(value) => setFilters(f => ({ ...f, status: value }))}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="inProgress">In Progress</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex-1 flex items-center gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Search tasks..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select 
+            value={filters.status} 
+            onValueChange={(value) => setFilters(f => ({ ...f, status: value }))}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select 
+            value={filters.assignedTo} 
+            onValueChange={(value) => setFilters(f => ({ ...f, assignedTo: value }))}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by assignee" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Users</SelectItem>
+              {users.map(user => (
+                <SelectItem key={user.username} value={user.username}>
+                  {user.username}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
               {/* <DateRangePicker
                 from={filters.dateRange.from}
                 to={filters.dateRange.to}
@@ -228,12 +253,15 @@ export default function TasksPage() {
           }}
         />
 
-        <TaskDetailModal
-          isOpen={!!selectedTask}
-          onClose={() => setSelectedTask(null)}
-          task={selectedTask}
-          onUpdateFeedback={handleUpdateFeedback}
-        />
+      <TaskDetailModal
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        task={selectedTask}
+        onUpdateFeedback={handleUpdateFeedback}
+        onCloseComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/tasks", filters] });
+        }}
+      />
       </div>
     </div>
   );

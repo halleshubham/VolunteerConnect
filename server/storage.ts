@@ -65,6 +65,13 @@ export interface IStorage {
     eventId?: number;
     status?: string;
   }): Promise<Contact[]>;
+
+  getAllTasksWithFilters(filters: {
+    isCompleted?: boolean;
+    assignedTo?: string;
+    fromDate?: Date;
+    toDate?: Date;
+  }): Promise<(Task & { feedbacks: TaskFeedback[] })[]>;
   
   // Session store
   sessionStore: session.Store;
@@ -704,6 +711,63 @@ async updateTaskCompletionStatus(taskId: number): Promise<void> {
 
     return Array.from(tasksMap.values());
   }
+
+  // Add this method to DatabaseStorage class
+async getAllTasksWithFilters(filters: {
+  isCompleted?: boolean;
+  assignedTo?: string;
+  fromDate?: Date;
+  toDate?: Date;
+}): Promise<(Task & { feedbacks: TaskFeedback[] })[]> {
+  let query = db
+    .select({
+      task: tasks,
+      feedbacks: taskFeedback,
+    })
+    .from(tasks)
+    .leftJoin(taskFeedback, eq(tasks.id, taskFeedback.taskId));
+
+  const conditions = [];
+
+  // Apply filters
+  if (filters.isCompleted !== undefined) {
+    conditions.push(eq(tasks.isCompleted, filters.isCompleted));
+  }
+
+  if (filters.assignedTo) {
+    conditions.push(eq(tasks.assignedTo, filters.assignedTo));
+  }
+
+  if (filters.fromDate) {
+    conditions.push(sql`${tasks.dueDate} >= ${filters.fromDate}`);
+  }
+
+  if (filters.toDate) {
+    conditions.push(sql`${tasks.dueDate} <= ${filters.toDate}`);
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
+  }
+
+  // Order by due date
+  query = query.orderBy(asc(tasks.dueDate));
+
+  const result = await query;
+
+  // Group feedbacks by task
+  const tasksMap = new Map();
+  result.forEach(({ task, feedbacks }) => {
+    if (!tasksMap.has(task.id)) {
+      tasksMap.set(task.id, { ...task, feedbacks: [] });
+    }
+    if (feedbacks) {
+      tasksMap.get(task.id).feedbacks.push(feedbacks);
+    }
+  });
+
+  return Array.from(tasksMap.values());
+}
 
 }
 
