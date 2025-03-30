@@ -23,6 +23,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
 
 // Form schema without contactId (added by parent)
 const formSchema = insertActivitySchema.omit({ contactId: true });
@@ -44,6 +52,10 @@ export default function ActivityForm({ isOpen, onClose, onSubmit }: ActivityForm
       activityDate: undefined,
       createdBy: user?.username,
     },
+  });
+
+  const { data: predefinedActivities = [] } = useQuery<PredefinedActivity[]>({
+    queryKey: ["/api/settings/activities"],
   });
 
   return (
@@ -69,10 +81,24 @@ export default function ActivityForm({ isOpen, onClose, onSubmit }: ActivityForm
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Activity title or status" />
-                  </FormControl>
+                  <FormLabel>Activity Type</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select activity type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {predefinedActivities.map((activity) => (
+                        <SelectItem key={activity.name} value={activity.name}>
+                          {activity.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

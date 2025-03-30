@@ -18,6 +18,28 @@ import ExcelJS from 'exceljs';
 import whatsapp from 'whatsapp-web.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { eq, and, ne, gte, lte, desc } from "drizzle-orm";
+import { 
+  tasks, 
+  taskFeedback, 
+  contacts as contactsTable 
+} from "../shared/schema";
+import { db } from "./db";
+
+interface CampaignData {
+  name: string;
+  description: string;
+  dueDate: string;
+  selectedUsers: string[];
+  contactDistribution: Record<string, Contact[]>;
+  fileData?: Array<{
+    Name: string;
+    Mobile: string;
+    "Assigned To": string;
+    "Task Name": string;
+  }>;
+}
+
 const { Client, LocalAuth } = whatsapp;
 
 // Middleware to check if user is authenticated
@@ -115,6 +137,47 @@ setInterval(cleanupSessions, 40 * 60 * 1000); // 1 hour
 // client.initialize();
 
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// Add this function after CampaignData interface
+function distributeContactsEvenly(contacts: Array<{
+  Name: string;
+  Mobile: string;
+  "Assigned To": string;
+  "Task Name": string;
+}>, selectedUsers: string[]): Record<string, {
+  Name: string;
+  Mobile: string;
+  "Task Name": string;
+}[]> {
+  const distribution: Record<string, Array<any>> = {};
+  selectedUsers.forEach(user => distribution[user] = []);
+
+  // Calculate contacts per user
+  const contactsPerUser = Math.floor(contacts.length / selectedUsers.length);
+  const remainingContacts = contacts.length % selectedUsers.length;
+
+  let currentIndex = 0;
+  contacts.forEach((contact, index) => {
+    // Determine which user gets this contact
+    const targetUser = selectedUsers[currentIndex];
+    
+    // Add contact to user's distribution
+    distribution[targetUser].push({
+      Name: contact.Name,
+      Mobile: contact.Mobile,
+      "Task Name": contact["Task Name"]
+    });
+
+    // Move to next user if their quota is filled
+    if ((index + 1) % contactsPerUser === 0 && 
+        currentIndex < selectedUsers.length - 1 && 
+        distribution[targetUser].length >= contactsPerUser + (currentIndex < remainingContacts ? 1 : 0)) {
+      currentIndex++;
+    }
+  });
+
+  return distribution;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
@@ -886,53 +949,46 @@ app.put("/api/task-feedback/:id", isAuthenticated, async (req, res, next) => {
   }
 });
 
-// Add a route to get task feedback for a specific task
-// app.get("/api/tasks/:taskId/feedback", isAuthenticated, async (req, res, next) => {
-//   try {
-//     const taskId = parseInt(req.params.taskId);
-//     if (isNaN(taskId)) {
-//       return res.status(400).json({ message: "Invalid task ID" });
-//     }
-
-//     const user = req.user as User;
+function isNotNull(value) {
+  return value !== null && value !== undefined;
+}
+// Add this endpoint after other task routes
+app.get("/api/tasks/campaigns", isAuthenticated, async (req, res, next) => {
+  try {
+    const { status, assignedTo, fromDate, toDate } = req.query;
     
-//     // Get the task to check permissions
-//     const task = await db
-//       .select()
-//       .from(tasks)
-//       .where(eq(tasks.id, taskId))
-//       .limit(1);
+    let query = db
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          isNotNull(tasks.campaignName),
+          // Add filters
+          status === 'completed' ? eq(tasks.isCompleted, true) : undefined,
+          status === 'pending' ? eq(tasks.isCompleted, false) : undefined,
+          assignedTo ? eq(tasks.assignedTo, assignedTo as string) : undefined,
+          fromDate ? gte(tasks.dueDate, new Date(fromDate as string)) : undefined,
+          toDate ? lte(tasks.dueDate, new Date(toDate as string)) : undefined,
+        )
+      )
+      .orderBy(desc(tasks.createdAt));
 
-//     if (!task.length) {
-//       return res.status(404).json({ message: "Task not found" });
-//     }
+    // Get tasks with their feedbacks
+    const tasksWithFeedback = await Promise.all(
+      (await query).map(async (task) => {
+        const feedbacks = await db
+          .select()
+          .from(taskFeedback)
+          .where(eq(taskFeedback.taskId, task.id));
+        return { ...task, feedbacks };
+      })
+    );
 
-//     // Check if user is assigned to this task or is admin
-//     if (user.role !== 'admin' && task[0].assignedTo !== user.username) {
-//       return res.status(403).json({ 
-//         message: "You don't have permission to view this task's feedback" 
-//       });
-//     }
-
-//     const feedbacks = await db
-//       .select({
-//         feedback: taskFeedback,
-//         contact: {
-//           id: contacts.id,
-//           name: contacts.name,
-//           mobile: contacts.mobile,
-//           city: contacts.city,
-//         },
-//       })
-//       .from(taskFeedback)
-//       .where(eq(taskFeedback.taskId, taskId))
-//       .leftJoin(contacts, eq(taskFeedback.contactId, contacts.id));
-
-//     res.json(feedbacks);
-//   } catch (error) {
-//     next(error);
-//   }
-// });
+    res.json(tasksWithFeedback);
+  } catch (error) {
+    next(error);
+  }
+});
 
   // === IMPORT/EXPORT ROUTES ===
   
@@ -1097,6 +1153,131 @@ app.put("/api/task-feedback/:id", isAuthenticated, async (req, res, next) => {
       });
       
       res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Add campaign creation endpoint
+  app.post("/api/campaigns", isAuthenticated, async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const campaignData: CampaignData = req.body;
+      
+      await db.transaction(async (trx) => {
+        if (campaignData.fileData) {
+          // Handle imported campaign
+          for (const row of campaignData.fileData) {
+            // Check if contact exists
+            const [contactRecord] = await trx
+              .select()
+              .from(contactsTable)
+              .where(eq(contactsTable.mobile, row.Mobile.replace(/\s/g, "")));
+
+            let contact;
+            if (!contactRecord) {
+              // Create new contact
+              const [newContact] = await trx
+                .insert(contactsTable)
+                .values({
+                  name: row.Name,
+                  mobile: row.Mobile.replace(/\s/g, ""),
+                  assignedTo: [row["Assigned To"]],
+                  area: "Unknown",
+                  city: "Unknown",
+                  state: "Unknown",
+                  priority: "low",
+                  category: "general",
+                })
+                .returning();
+              contact = newContact;
+            } else {
+              contact = contactRecord;
+            }
+
+            // Create task and feedback
+            const [task] = await trx
+              .insert(tasks)
+              .values({
+                title: `${row["Task Name"]} Task`,
+                description: campaignData.description,
+                dueDate: new Date(campaignData.dueDate),
+                assignedTo: row["Assigned To"],
+                createdBy: user.username,
+                campaignName: `${campaignData.name} Campaign`,
+              })
+              .returning();
+
+            await trx
+              .insert(taskFeedback)
+              .values({
+                taskId: task.id,
+                contactId: contact.id,
+                assignedTo: row["Assigned To"],
+              });
+          }
+        } else {
+          // Handle manual campaign
+          for (const [username, contacts] of Object.entries(campaignData.contactDistribution)) {
+            if (contacts.length === 0) continue;
+
+            // Create task for this user
+            const [task] = await trx
+              .insert(tasks)
+              .values({
+                title: `${campaignData.name} Task`,
+                description: campaignData.description,
+                dueDate: new Date(campaignData.dueDate),
+                assignedTo: username,
+                createdBy: user.username,
+                campaignName: `${campaignData.name} Campaign`,
+              })
+              .returning();
+
+            // Create feedback entries for each contact
+            for (const contact of contacts) {
+              await trx
+                .insert(taskFeedback)
+                .values({
+                  taskId: task.id,
+                  contactId: contact.id,
+                  assignedTo: username,
+                });
+            }
+          }
+        }
+      });
+
+      res.json({ message: "Campaign created successfully" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // === SETTINGS ROUTES ===
+  // Add these routes after other settings routes
+  app.get("/api/settings/activities", isAuthenticated, async (req, res, next) => {
+    try {
+      const activities = await storage.getPredefinedActivities();
+      res.json(activities);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/settings/activities", isAuthenticated, async (req, res, next) => {
+    try {
+      const activity = await storage.createPredefinedActivity(req.body);
+      res.status(201).json(activity);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/settings/activities/:name", isAuthenticated, async (req, res, next) => {
+    try {
+      await storage.deletePredefinedActivity(req.params.name);
+      res.status(204).end();
     } catch (error) {
       next(error);
     }

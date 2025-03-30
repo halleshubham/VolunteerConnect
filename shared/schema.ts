@@ -142,6 +142,7 @@ export const tasks = pgTable("tasks", {
   createdAt: timestamp("created_at").defaultNow(),
   assignedTo: text("assigned_to").notNull(), // username of assigned user
   createdBy: text("created_by").notNull(), // username of admin who created
+  campaignName: text("campaign_name"),
 });
 
 //below is the schema for task_feedback
@@ -175,3 +176,21 @@ export type Task = typeof tasks.$inferSelect;
 export type TaskFeedback = typeof taskFeedback.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type InsertTaskFeedback = z.infer<typeof insertTaskFeedbackSchema>;
+
+// Update the predefinedActivities schema
+export const predefinedActivities = pgTable("predefined_activities", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  date: timestamp("date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Add a schema for inserting predefined activities
+export const insertPredefinedActivitySchema = createInsertSchema(predefinedActivities)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    date: z.string().optional().transform(val => val ? new Date(val) : null),
+  });
+
+export type PredefinedActivity = typeof predefinedActivities.$inferSelect;
+export type InsertPredefinedActivity = z.infer<typeof insertPredefinedActivitySchema>;

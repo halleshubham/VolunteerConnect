@@ -3,6 +3,7 @@ import { events, type Event, type InsertEvent } from "@shared/schema";
 import { attendance, type Attendance, type InsertAttendance } from "@shared/schema";
 import { followUps, type FollowUp, type InsertFollowUp } from "@shared/schema";
 import { users, type User, type InsertUser } from "@shared/schema";
+import { predefinedActivities, type PredefinedActivity, type InsertPredefinedActivity } from "@shared/schema";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
@@ -52,6 +53,11 @@ export interface IStorage {
   updateActivity(id: number, activity: Partial<Activity>): Promise<Activity | undefined>;
   deleteActivity(id: number): Promise<boolean>;
 
+  // Predefined Activity operations
+  getPredefinedActivities(): Promise<PredefinedActivity[]>;
+  createPredefinedActivity(data: InsertPredefinedActivity): Promise<PredefinedActivity>;
+  deletePredefinedActivity(name: string): Promise<boolean>;
+
   //Bulk Operations
   bulkUpdateContacts(contactIds: number[], field: string, value: string): Promise<number>;
   bulkDeleteContacts(contactIds: number[]): Promise<number>;
@@ -64,6 +70,8 @@ export interface IStorage {
     city?: string;
     eventId?: number;
     status?: string;
+    occupation?: string;
+    assignedTo?: string[];
   }): Promise<Contact[]>;
 
   getAllTasksWithFilters(filters: {
@@ -450,7 +458,7 @@ export class DatabaseStorage implements IStorage {
     eventId?: number;
     status?: string;
     occupation?: string;
-    assignedTo?:string
+    assignedTo?: string[];
   }): Promise<Contact[]> {
     if (filters.eventId) {
       // Special case for filtering by event attendance
@@ -769,6 +777,34 @@ async getAllTasksWithFilters(filters: {
   return Array.from(tasksMap.values());
 }
 
+  // Predefined Activity operations
+  async getPredefinedActivities(): Promise<PredefinedActivity[]> {
+    return await db
+      .select()
+      .from(predefinedActivities)
+      .orderBy(predefinedActivities.name);
+  }
+
+  async createPredefinedActivity(data: InsertPredefinedActivity): Promise<PredefinedActivity> {
+    // Ensure date is properly converted to a Date object if it exists
+    const formattedData = {
+      ...data,
+      date: data.date ? new Date(data.date) : null
+    };
+
+    const [activity] = await db
+      .insert(predefinedActivities)
+      .values(formattedData)
+      .returning();
+    return activity;
+  }
+
+  async deletePredefinedActivity(name: string): Promise<boolean> {
+    const result = await db
+      .delete(predefinedActivities)
+      .where(eq(predefinedActivities.name, name));
+    return result.rowCount > 0;
+  }
 }
 
 export const storage = new DatabaseStorage();
