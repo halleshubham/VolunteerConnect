@@ -7,6 +7,7 @@ import {
   insertContactSchema, 
   insertEventSchema, 
   insertFollowUpSchema,
+  insertUserSchema,
   Contact, 
   insertActivitySchema,
   insertTaskSchema,
@@ -1278,6 +1279,71 @@ app.get("/api/tasks/campaigns", isAuthenticated, async (req, res, next) => {
     try {
       await storage.deletePredefinedActivity(req.params.name);
       res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/settings/users", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admin users can fetch all users
+      if (currentUser.role !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only admins can view all users" 
+        });
+      }
+
+      const users = await storage.getUsers();
+      res.json(users);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/settings/users", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admin users can create users
+      if (currentUser.role !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only admins can create users" 
+        });
+      }
+
+      const userData = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(userData);
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/settings/users/:username", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admin users can delete users
+      if (currentUser.role !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only admins can delete users" 
+        });
+      }
+
+      // Prevent self-deletion
+      if (currentUser.username === req.params.username) {
+        return res.status(400).json({
+          message: "Cannot delete your own account"
+        });
+      }
+
+      await storage.deleteUser(req.params.username);
+      res.status(204).send();
     } catch (error) {
       next(error);
     }

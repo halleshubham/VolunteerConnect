@@ -10,6 +10,7 @@ import { db } from "./db";
 import { eq, and, ilike, desc, asc, or, sql, inArray } from "drizzle-orm";
 import { Pool } from "@neondatabase/serverless";
 import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
 dotenv.config();
 
 const PostgresSessionStore = connectPg(session);
@@ -20,6 +21,8 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  deleteUser(username: string): Promise<boolean>;
+  getUsers(): Promise<{id:number, username: string, role: string | null, mobile: string | null}[]>;
   
   // Contact operations
   getContacts(filters?: Partial<Contact>): Promise<Contact[]>;
@@ -114,8 +117,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    // Hash password before storing
+    const hashedPassword = await bcrypt.hash(insertUser.password, 10);
+    
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...insertUser,
+        password: hashedPassword
+      })
+      .returning();
+    
     return user;
+  }
+
+  async deleteUser(username: string): Promise<boolean> {
+    await db
+      .delete(users)
+      .where(eq(users.username, username));
+    return true;
+  }
+
+  async getUsers(): Promise<{id:number, username: string, role: string | null, mobile: string | null}[]> {
+    const userList = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        role: users.role,
+        mobile: users.mobile
+      })
+      .from(users)
+      .orderBy(users.username);
+    
+    return userList;
   }
 
   // Contact operations
@@ -640,21 +674,6 @@ async updateTaskCompletionStatus(taskId: number): Promise<void> {
     .set({ isCompleted: allCompleted })
     .where(eq(tasks.id, taskId));
 }
-
-  // Add this method to DatabaseStorage class
-  async getUsers(): Promise<{id:number, username: string, role: string | null, mobile: string | null}[]> {
-      const userList = await db
-        .select({
-          id: users.id,
-          username: users.username,
-          role: users.role,
-          mobile: users.mobile
-        })
-        .from(users)
-        .orderBy(users.username);
-      
-      return userList;
-    }
 
   // Add to DatabaseStorage class
   async createTask(task: InsertTask): Promise<Task> {

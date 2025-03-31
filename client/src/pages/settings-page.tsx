@@ -13,10 +13,19 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from '@/lib/queryClient';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PredefinedActivity {
   name: string;
   date?: Date;
+}
+
+interface User {
+  id: number;
+  username: string;
+  role: string;
+  mobile?: string;
 }
 
 export default function SettingsPage() {
@@ -29,6 +38,10 @@ export default function SettingsPage() {
   const [newActivity, setNewActivity] = useState('');
   const [newActivityDate, setNewActivityDate] = useState<Date>();
   const [activitySearch, setActivitySearch] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState('');
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const {toast} = useToast();
 
   const { data: activities = [], isLoading: isActivitiesLoading } = useQuery<PredefinedActivity[]>({
@@ -38,6 +51,17 @@ export default function SettingsPage() {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch activities');
+      return response.json();
+    }
+  });
+
+  const { data: users = [], isLoading: isUsersLoading } = useQuery<User[]>({
+    queryKey: ['/api/settings/users'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings/users', {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
     }
   });
@@ -74,6 +98,37 @@ export default function SettingsPage() {
     }
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: async (data: { username: string; password: string; role: string }) => {
+      const response = await fetch('/api/settings/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to create user');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/users'] });
+      setNewUsername('');
+      setNewPassword('');
+      setNewRole('');
+      setIsAddUserDialogOpen(false);
+      toast({
+        title: "User created",
+        description: "The user has been created successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
   const deleteActivityMutation = useMutation({
     mutationFn: async (name: string) => {
       const response = await fetch(`/api/settings/activities/${name}`, {
@@ -87,6 +142,30 @@ export default function SettingsPage() {
       toast({
         title: "Activity deleted",
         description: "The activity has been deleted successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (username: string) => {
+      const response = await fetch(`/api/settings/users/${username}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to delete user');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/users'] });
+      toast({
+        title: "User deleted",
+        description: "The user has been deleted successfully.",
       });
     },
     onError: (error: Error) => {
@@ -142,6 +221,23 @@ export default function SettingsPage() {
 
   const handleRemoveActivity = (activityName: string) => {
     deleteActivityMutation.mutate(activityName);
+  };
+
+  const handleCreateUser = () => {
+    if (!newUsername || !newPassword || !newRole) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    createUserMutation.mutate({
+      username: newUsername,
+      password: newPassword,
+      role: newRole
+    });
   };
 
   return (
@@ -249,89 +345,95 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* <Card>
-            <CardHeader>
-              <CardTitle>Categories</CardTitle>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Users</CardTitle>
+              <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add User
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New User</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Input 
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      placeholder="Username"
+                    />
+                    <Input 
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Password"
+                    />
+                    <Select value={newRole} onValueChange={setNewRole}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="user">User</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      onClick={handleCreateUser}
+                      disabled={createUserMutation.isPending}
+                      className="w-full"
+                    >
+                      {createUserMutation.isPending && (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      )}
+                      Create User
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-2 mb-4">
-                <Input 
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="Add new category"
-                />
-                <Button onClick={() => handleAdd('category', newCategory)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {categories.map(category => (
-                  <div key={category} className="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1">
-                    <span>{category}</span>
-                    <button onClick={() => handleRemove('category', category)} className="text-gray-500 hover:text-gray-700">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Mobile</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isUsersLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                        </TableCell>
+                      </TableRow>
+                    ) : users.map(user => (
+                      <TableRow key={user.id}>
+                        <TableCell>{user.username}</TableCell>
+                        <TableCell>{user.role}</TableCell>
+                        <TableCell>{user.mobile || '-'}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteUserMutation.mutate(user.username)}
+                            disabled={deleteUserMutation.isPending}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Priorities</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 mb-4">
-                <Input 
-                  value={newPriority}
-                  onChange={(e) => setNewPriority(e.target.value)}
-                  placeholder="Add new priority"
-                />
-                <Button onClick={() => handleAdd('priority', newPriority)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {priorities.map(priority => (
-                  <div key={priority} className="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1">
-                    <span>{priority}</span>
-                    <button onClick={() => handleRemove('priority', priority)} className="text-gray-500 hover:text-gray-700">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Statuses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 mb-4">
-                <Input 
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  placeholder="Add new status"
-                />
-                <Button onClick={() => handleAdd('status', newStatus)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {statuses.map(status => (
-                  <div key={status} className="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1">
-                    <span>{status}</span>
-                    <button onClick={() => handleRemove('status', status)} className="text-gray-500 hover:text-gray-700">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card> */}
         </div>
       </div>
     </div>

@@ -82,21 +82,21 @@ export default function AuthPage() {
 
   // Handle registration
   const onRegister = async (values: z.infer<typeof registerSchema>) => {
-    try {
-      console.log("AuthPage: Attempting registration with username:", values.username);
-      const { confirmPassword, ...userData } = values;
-      const result = await registerMutation.mutateAsync({...userData, role:"viewonly"});
-      console.log("AuthPage: Registration successful, user data:", result);
+    // try {
+    //   console.log("AuthPage: Attempting registration with username:", values.username);
+    //   const { confirmPassword, ...userData } = values;
+    //   const result = await registerMutation.mutateAsync({...userData, role:"viewonly"});
+    //   console.log("AuthPage: Registration successful, user data:", result);
       
-      // Short delay before redirecting to ensure session is properly established
-      setTimeout(() => {
-        console.log("AuthPage: Redirecting to home page after registration");
-        navigate("/");
-      }, 300);
-    } catch (error) {
-      console.error("AuthPage: Registration failed:", error);
-      // Form should display error via the toast
-    }
+    //   // Short delay before redirecting to ensure session is properly established
+    //   setTimeout(() => {
+    //     console.log("AuthPage: Redirecting to home page after registration");
+    //     navigate("/");
+    //   }, 300);
+    // } catch (error) {
+    //   console.error("AuthPage: Registration failed:", error);
+    //   // Form should display error via the toast
+    // }
   };
 
   return (
@@ -278,7 +278,7 @@ export default function AuthPage() {
           <CardFooter className="flex flex-col">
             <div className="text-sm text-center text-gray-500 mt-2">
               {activeTab === "login" ? (
-                <span>Don't have an account? <Button variant="link" className="p-0" onClick={() => setActiveTab("register")}>Register</Button></span>
+                <span>Don't have an account? <Button variant="link" className="p-0">Register</Button></span>
               ) : (
                 <span>Already have an account? <Button variant="link" className="p-0" onClick={() => setActiveTab("login")}>Login</Button></span>
               )}
