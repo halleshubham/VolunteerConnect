@@ -30,7 +30,9 @@ export const contacts = pgTable("contacts", {
   state: text("state").notNull(),
   nation: text("nation").notNull().default("India"),
   priority: text("priority").notNull(), // high, medium, low
-  category: text("category").notNull(), // volunteer, donor, partner, attendee
+  organisation: text("organisation"),
+  countryCode: text("country_code").notNull().default("+91"),
+  category: text("category").notNull(),
   email: text("email"),
   occupation: text("occupation").notNull().default('Other'),
   sex: text("sex"),
@@ -43,10 +45,17 @@ export const contacts = pgTable("contacts", {
   team: text("team")
 });
 
-export const insertContactSchema = createInsertSchema(contacts).omit({
-  id: true,
-  createdAt: true,
-});
+export const insertContactSchema = createInsertSchema(contacts)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    mobile: z.string().refine(
+      (val) => {
+        const numberOnly = val.replace(/\D/g, '');
+        return numberOnly.length === 10 || numberOnly.length === 12;
+      },
+      { message: "Mobile number must be 10 digits or 12 digits with country code" }
+    ),
+  });
 
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contacts.$inferSelect;
@@ -155,7 +164,11 @@ export const taskFeedback = pgTable("task_feedback", {
   feedback: text("feedback"),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  response: text("response")
 });
+
+// Add a type for the response values
+export type TaskResponse = "Yes" | "No" | "Tentative";
 
 // Update the task schema to handle date strings
 export const insertTaskSchema = createInsertSchema(tasks, {

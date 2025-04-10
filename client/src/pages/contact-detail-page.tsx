@@ -23,7 +23,15 @@ import {
   Plus, 
   Clock, 
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Building,
+  Briefcase,
+  Users,
+  Flag,
+  Heart,
+  Hash,
+  UserCircle2,
+  Globe
 } from "lucide-react";
 import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
@@ -268,6 +276,7 @@ const {
                   </Button>
                 </CardHeader>
                 <CardContent>
+                  {/* Profile avatar and name section */}
                   <div className="flex flex-col items-center justify-center py-4">
                     <div className={`h-24 w-24 rounded-full ${getAvatarColor(contact.name)} flex items-center justify-center text-3xl font-medium mb-3`}>
                       {getInitials(contact.name)}
@@ -306,18 +315,20 @@ const {
                     </div>
                   </div>
                   
+                  {/* Contact information */}
                   <div className="border-t border-gray-200 mt-4 pt-4">
+                    <h3 className="font-medium text-gray-800 mb-3">Contact Details</h3>
                     <div className="space-y-4">
+                      {/* Phone */}
                       <div className="flex items-start">
                         <Phone className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
                         <div>
-                          <a href={`tel:${contact.mobile}`}>
-                            <p className="text-sm text-gray-500">Mobile</p>
-                            <p className="font-medium">{contact.mobile}</p>
-                          </a>
+                          <p className="text-sm text-gray-500">Mobile</p>
+                          <p className="font-medium">{contact.countryCode || '+91'} {contact.mobile}</p>
                         </div>
                       </div>
                       
+                      {/* Email */}
                       {contact.email && (
                         <div className="flex items-start">
                           <Mail className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
@@ -328,6 +339,7 @@ const {
                         </div>
                       )}
                       
+                      {/* Address */}
                       <div className="flex items-start">
                         <MapPin className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
                         <div>
@@ -337,21 +349,110 @@ const {
                           <p>{contact.nation} {contact.pincode}</p>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                  
+                  {/* Personal information */}
+                  <div className="border-t border-gray-200 mt-4 pt-4">
+                    <h3 className="font-medium text-gray-800 mb-3">Personal Information</h3>
+                    <div className="space-y-4">
+                      {/* Sex */}
+                      {contact.sex && (
+                        <div className="flex items-start">
+                          <UserCircle2 className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-gray-500">Gender</p>
+                            <p className="font-medium capitalize">{contact.sex}</p>
+                          </div>
+                        </div>
+                      )}
 
+                      {/* Marital Status */}
+                      {contact.maritalStatus && (
+                        <div className="flex items-start">
+                          <div className="h-5 w-5 text-gray-500 mr-3 mt-0.5"> </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Marital Status</p>
+                            <p className="font-medium capitalize">{contact.maritalStatus}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Professional information */}
+                  <div className="border-t border-gray-200 mt-4 pt-4">
+                    <h3 className="font-medium text-gray-800 mb-3">Professional Information</h3>
+                    <div className="space-y-4">
+                      {/* Occupation */}
                       {contact.occupation && (
                         <div className="flex items-start">
-                          <User className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
+                          <Briefcase className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
                           <div>
                             <p className="text-sm text-gray-500">Occupation</p>
                             <p className="font-medium">{contact.occupation}</p>
                           </div>
                         </div>
                       )}
-                      
+
+                      {/* Organization */}
+                      {contact.organisation && (
+                        <div className="flex items-start">
+                          <Building className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-gray-500">Organisation</p>
+                            <p className="font-medium">{contact.organisation}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Volunteer/Assignment information */}
+                  {(contact.team || (contact.assignedTo && contact.assignedTo.length > 0)) && (
+                    <div className="border-t border-gray-200 mt-4 pt-4">
+                      <h3 className="font-medium text-gray-800 mb-3">Assignment Information</h3>
+                      <div className="space-y-4">
+                        {/* Team */}
+                        {contact.team && (
+                          <div className="flex items-start">
+                            <Users className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
+                            <div>
+                              <p className="text-sm text-gray-500">Team</p>
+                              <p className="font-medium">{contact.team}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Assigned To */}
+                        {contact.assignedTo && contact.assignedTo.length > 0 && (
+                          <div className="flex items-start">
+                            <User className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
+                            <div>
+                              <p className="text-sm text-gray-500">Assigned To</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {contact.assignedTo.map((person, index) => (
+                                  <Badge key={index} variant="outline" className="bg-gray-100">
+                                    {person}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status information */}
+                  <div className="border-t border-gray-200 mt-4 pt-4">
+                    <h3 className="font-medium text-gray-800 mb-3">Status</h3>
+                    <div className="space-y-4">
+                      {/* Status */}
                       <div className="flex items-start">
                         <Clock className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
                         <div>
-                          <p className="text-sm text-gray-500">Status</p>
+                          <p className="text-sm text-gray-500">Current Status</p>
                           <Badge 
                             className={`
                               ${contact.status === 'active' 
@@ -367,13 +468,30 @@ const {
                           </Badge>
                         </div>
                       </div>
+
+                      {/* Created At */}
+                      {contact.createdAt && (
+                        <div className="flex items-start">
+                          <Calendar className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-gray-500">Added On</p>
+                            <p className="font-medium">{new Date(contact.createdAt).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
+                  {/* Notes */}
                   {contact.notes && (
                     <div className="border-t border-gray-200 mt-4 pt-4">
-                      <p className="text-sm text-gray-500 mb-1">Notes</p>
-                      <p className="text-gray-700 whitespace-pre-line">{contact.notes}</p>
+                      <div className="flex items-start">
+                        <Hash className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Notes</p>
+                          <p className="text-gray-700 whitespace-pre-line">{contact.notes}</p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </CardContent>

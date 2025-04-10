@@ -28,7 +28,7 @@ export function BulkUpdateModal({
   const [selectedValue, setSelectedValue] = useState("");
 
   const fields = {
-    category: ["volunteer", "donor", "partner", "attendee"],
+    category: ["volunteer", "sympathiser", "attendee", "political"],
     priority: ["high", "medium", "low"],
     status: ["active", "inactive", "follow-up"],
     team: [
@@ -53,7 +53,8 @@ export function BulkUpdateModal({
       "student",
       "professional",
       "other"
-    ]
+    ],
+    sex: ["male", "female", "other", "prefer_not_to_say"],
   };
 
   const handleUpdate = async () => {

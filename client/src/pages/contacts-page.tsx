@@ -244,27 +244,48 @@ export default function ContactsPage() {
       return;
     }
 
-    // Step 1: Find max array length in skills
-    const maxSkills = Math.max(...data.map(item => item.assignedTo?.length || 0));
+    // Step 1: Find max array length in assignedTo
+    const maxAssigned = Math.max(...data.map(item => item.assignedTo?.length || 0));
 
-    // Step 2: Flatten the array field into separate columns
-    const flattenedData = data.map((item) => {
-      const assignedTos = item.assignedTo || [];
-      const assignedToObj = {};
-      for (let i = 0; i < maxSkills; i++) {
-        assignedToObj[`assignedTo_${i + 1}`] = assignedTos[i] || '';
+    // Step 2: Create flattened data structure for Excel
+    const flattenedData = data.map((item: any) => {
+      const flatItem: any = {
+        Name: item.name,
+        Mobile: item.mobile,
+        CountryCode: item.countryCode || '+91',
+        Email: item.email,
+        Area: item.area,
+        City: item.city,
+        State: item.state,
+        Nation: item.nation,
+        Pincode: item.pincode,
+        Category: item.category,
+        Priority: item.priority,
+        Status: item.status,
+        Sex: item.sex,
+        Organisation: item.organisation,
+        MaritalStatus: item.maritalStatus,
+        Occupation: item.occupation,
+        Notes: item.notes,
+        Team: item.team,
+      };
+
+      // Add assignedTo columns
+      if (item.assignedTo && Array.isArray(item.assignedTo)) {
+        for (let i = 0; i < maxAssigned; i++) {
+          flatItem[`AssignedTo${i+1}`] = item.assignedTo[i] || '';
+        }
       }
-      return { ...item, ...assignedToObj };
+
+      return flatItem;
     });
 
-    // Create a worksheet from the JSON data
+    // Step 3: Create workbook and add data
     const worksheet = XLSX.utils.json_to_sheet(flattenedData);
-
-    // Create a new workbook and append the worksheet
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
-
-    // Write the workbook and trigger download
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Contacts");
+    
+    // Step 4: Save file
     XLSX.writeFile(workbook, fileName);
   };
 

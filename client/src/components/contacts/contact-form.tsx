@@ -29,8 +29,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X } from "lucide-react";
-import { useEffect } from "react";
+import { Plus, X, Check } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Toast } from "@/components/ui/toast";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useQuery } from "@tanstack/react-query";
+import {User} from "@shared/schema";
 
 // Create a contact form type that handles all the field types correctly
 type ContactFormData = {
@@ -51,15 +68,21 @@ type ContactFormData = {
   pincode: string;
   notes: string;
   createdAt?: Date;
-  team?: string,
-  assignedTo: string[]
+  team?: string;
+  assignedTo: string[];
+  organisation?: string;
+  countryCode: string;
 };
 
 // Extended schema with validation
 const formSchema = insertContactSchema.extend({
-  mobile: z.string().min(10, "Mobile number must be at least 10 digits"),
+  mobile: z.string()
+    .refine(val => /^\d{10}$/.test(val), {
+      message: "Mobile number must be exactly 10 digits without country code"
+    }),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   pincode: z.string().max(10, "Pincode cannot exceed 10 characters").optional().or(z.literal("")),
+  countryCode: z.string().default("+91"),
 });
 
 // Convert the schema to match our ContactFormData type
@@ -72,7 +95,15 @@ type ContactFormProps = {
   contact?: Contact;
 };
 
+
 export default function ContactForm({ isOpen, onClose, onSubmit, contact }: ContactFormProps) {
+  const [countryCode, setCountryCode] = useState("+91");
+
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
   // Helper function to convert Contact to ContactFormData
   const mapContactToFormData = (contact: Contact): ContactFormData => ({
     id: contact.id,
@@ -93,11 +124,12 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
     notes: contact.notes ?? "",
     createdAt: contact.createdAt ?? undefined,
     team: contact.team ?? "",
-    assignedTo: contact.assignedTo ?? [""]
+    assignedTo: contact.assignedTo ?? [""],
+    organisation: contact.organisation ?? "",
+    countryCode: contact.countryCode ?? "+91",
   });
-  
+
   // Initialize form with default values or contact data for editing
-    // Initialize form with default values or contact data for editing
   const form = useForm<FormSchemaType>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -117,7 +149,9 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
       assignedTo: contact?.assignedTo || [""],
       sex: contact?.sex || "",
       occupation: contact?.occupation || "",
-      maritalStatus: contact?.maritalStatus || "Single"
+      maritalStatus: contact?.maritalStatus || "Single",
+      organisation: contact?.organisation || "",
+      countryCode: contact?.countryCode || "+91",
     },
   });
 
@@ -141,14 +175,38 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
         assignedTo: contact.assignedTo || [""],
         sex: contact?.sex || "",
         occupation: contact?.occupation || "",
-        maritalStatus: contact?.maritalStatus || "Single"
+        maritalStatus: contact?.maritalStatus || "Single",
+        organisation: contact?.organisation || "",
+        countryCode: contact?.countryCode || "+91",
       });
     }
   }, [contact, form]);
 
+  // Handle form submission with validation
+  const handleSubmit = (data: FormSchemaType) => {
+    // Validate phone number format
+    const mobileNumber = data.mobile;
+
+    if (!/^\d{10}$/.test(mobileNumber)) {
+      Toast({
+        title: "Invalid phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prepare data with country code
+    const formattedData = {
+      ...data,
+      countryCode,
+    };
+
+    onSubmit(formattedData);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl" style={{'overflowY':'scroll', 'maxHeight':'80%'}}>
+      <DialogContent className="sm:max-w-4xl" style={{ overflowY: "scroll", maxHeight: "80%" }}>
         <DialogHeader>
           <DialogTitle>{contact ? "Edit Contact" : "Add New Contact"}</DialogTitle>
           <DialogDescription>
@@ -167,7 +225,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
               <FormField
                 control={form.control}
@@ -189,9 +247,35 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Mobile Number *</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="+91 XXXXX XXXXX" />
-                    </FormControl>
+                    <div className="flex">
+                      <Select
+                        value={countryCode}
+                        onValueChange={setCountryCode}
+                        className="w-24 mr-2"
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="+91" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="+91">+91</SelectItem>
+                          <SelectItem value="+1">+1</SelectItem>
+                          <SelectItem value="+44">+44</SelectItem>
+                          <SelectItem value="+61">+61</SelectItem>
+                          <SelectItem value="+49">+49</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        {...field}
+                        type="tel"
+                        placeholder="10-digit mobile number"
+                        className="flex-1"
+                        maxLength={10}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          field.onChange(value);
+                        }}
+                      />
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -203,9 +287,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Team *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                    >
+                    <Select onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a Team" />
@@ -249,20 +331,15 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Category *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                      </FormControl>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="volunteer">Volunteer</SelectItem>
-                        <SelectItem value="donor">Donor</SelectItem>
-                        <SelectItem value="partner">Partner</SelectItem>
+                        <SelectItem value="sympathiser">Sympathiser</SelectItem>
                         <SelectItem value="attendee">Attendee</SelectItem>
+                        <SelectItem value="political">Political</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -304,48 +381,76 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Assigned To</FormLabel>
-                    <div className="space-y-2">
-                      {field?.value?.map((person, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <FormControl>
-                            <Input
-                              value={person}
-                              onChange={(e) => {
-                                const newAssignedTo = [...field?.value];
-                                newAssignedTo[index] = e.target.value;
-                                field.onChange(newAssignedTo);
-                              }}
-                              placeholder={`Person ${index + 1}`}
-                            />
-                          </FormControl>
-                          {field?.value?.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
+                    <FormControl>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between h-auto min-h-10"
+                          >
+                            {field.value && field.value.length > 0 
+                              ? `${field.value.length} user(s) selected`
+                              : "Select users"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search users..." />
+                            <CommandEmpty>No users found.</CommandEmpty>
+                            <CommandGroup>
+                              <ScrollArea className="h-60">
+                                {users.map(user => (
+                                  <CommandItem
+                                    key={user.id}
+                                    onSelect={() => {
+                                      const currentValue = field.value || [];
+                                      const isSelected = currentValue.includes(user.username);
+
+                                      let newValue;
+                                      if (isSelected) {
+                                        newValue = currentValue.filter(name => name !== user.username);
+                                      } else {
+                                        newValue = [...currentValue, user.username];
+                                      }
+
+                                      field.onChange(newValue.length ? newValue : [""]);
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2 w-full">
+                                      {field.value?.includes(user.username) && (
+                                        <Check className="h-4 w-4" />
+                                      )}
+                                      <span>{user.username}</span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </ScrollArea>
+                            </CommandGroup>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </FormControl>
+                    {field.value && field.value.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {field.value.filter(Boolean).map((name, index) => (
+                          <Badge 
+                            key={index} 
+                            variant="secondary"
+                            className="flex items-center gap-1"
+                          >
+                            {name}
+                            <X 
+                              className="h-3 w-3 cursor-pointer" 
                               onClick={() => {
-                                const newAssignedTo = field?.value?.filter((_, i) => i !== index);
-                                field.onChange(newAssignedTo);
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => {
-                          field.onChange([...field.value, ""]);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Another Person
-                      </Button>
-                    </div>
+                                const newValue = field.value.filter((_, i) => i !== index);
+                                field.onChange(newValue.length ? newValue : [""]);
+                              }} 
+                            />
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -357,10 +462,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
                     <FormLabel>State *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a state" />
@@ -390,10 +492,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
                     <FormLabel>Nation *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a country" />
@@ -515,10 +614,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Priority *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select priority" />
@@ -563,13 +659,27 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
 
               <FormField
                 control={form.control}
+                name="organisation"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-3">
+                    <FormLabel>Organisation</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Organisation name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="notes"
                 render={({ field }) => (
                   <FormItem className="sm:col-span-6">
                     <FormLabel>Notes</FormLabel>
                     <FormControl>
-                      <Textarea 
-                        {...field} 
+                      <Textarea
+                        {...field}
                         value={field.value ?? ""}
                         placeholder="Any additional notes about this contact"
                         rows={3}
@@ -581,7 +691,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
               />
             </div>
 
-            <DialogFooter style={{'position': 'sticky', 'bottom': '0'}}>
+            <DialogFooter style={{ position: "sticky", bottom: "0" }}>
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>

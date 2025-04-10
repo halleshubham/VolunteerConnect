@@ -10,6 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "../ui/badge";
 import { format } from "date-fns";
 import { Phone } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TaskResponse } from "@shared/schema";
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -31,6 +39,7 @@ export function TaskDetailModal({
   const [localFeedbacks, setLocalFeedbacks] = useState<Record<number, {
     feedback: string;
     isCompleted: boolean;
+    response: TaskResponse;
   }>>({});
 
   const handleOpenChange = (open: boolean) => {
@@ -69,9 +78,12 @@ export function TaskDetailModal({
         [feedback.id]: {
           feedback: feedback.feedback || "",
           isCompleted: feedback.isCompleted || false,
+          // Make sure to use the actual response from the feedback
+          response: feedback.response || "Tentative" as TaskResponse,
         },
       }), {});
       setLocalFeedbacks(initialState);
+      console.log('Initial state:', initialState); // Add this for debugging
     }
   }, [task]);
 
@@ -81,10 +93,13 @@ export function TaskDetailModal({
     const localFeedback = localFeedbacks[feedbackId];
     if (!localFeedback) return;
 
+    console.log('Submitting feedback:', localFeedback); // Add this for debugging
+
     await onUpdateFeedback(feedbackId, {
       feedback: localFeedback.feedback,
       isCompleted: localFeedback.isCompleted,
       completedAt: localFeedback.isCompleted ? new Date() : null,
+      response: localFeedback.response, // Make sure this is included
     });
 
     // Add to submitted feedbacks
@@ -113,6 +128,14 @@ export function TaskDetailModal({
   const completedCount = task.feedbacks.length - activeFeedbacks.length;
   const progress = (completedCount / task.feedbacks.length) * 100;
 
+  const handleTabChange = (value: string) => {
+    // Refresh tasks data when switching tabs
+    queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/contactsByIdList", task?.feedbacks.map(f => f.contactId)]
+    });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -140,7 +163,7 @@ export function TaskDetailModal({
             </div>
           </div>
 
-          <Tabs defaultValue="active" className="w-full">
+          <Tabs defaultValue="active" className="w-full" onValueChange={handleTabChange}>
             <TabsList className="w-full grid grid-cols-2">
               <TabsTrigger value="active">Active ({activeFeedbacks.length})</TabsTrigger>
               <TabsTrigger value="completed">Completed ({task.feedbacks.length - activeFeedbacks.length})</TabsTrigger>
@@ -169,20 +192,47 @@ export function TaskDetailModal({
                                 </a>
                               </p>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <label className="text-sm">Mark as completed</label>
-                              <Checkbox 
-                                checked={localFeedback?.isCompleted}
-                                onCheckedChange={(checked) => {
-                                  setLocalFeedbacks(prev => ({
-                                    ...prev,
-                                    [feedback.id]: {
-                                      ...prev[feedback.id],
-                                      isCompleted: checked === true,
-                                    },
-                                  }));
-                                }}
-                              />
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-2">
+                                <label className="text-sm">Mark as completed</label>
+                                <Checkbox 
+                                  checked={localFeedback?.isCompleted}
+                                  onCheckedChange={(checked) => {
+                                    setLocalFeedbacks(prev => ({
+                                      ...prev,
+                                      [feedback.id]: {
+                                        ...prev[feedback.id],
+                                        isCompleted: checked === true,
+                                      },
+                                    }));
+                                  }}
+                                />
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <label className="text-sm">Response:</label>
+                                <Select
+                                  value={localFeedback?.response || "Tentative"}
+                                  onValueChange={(value: TaskResponse) => {
+                                    console.log('Selected response:', value); // Add this for debugging
+                                    setLocalFeedbacks(prev => ({
+                                      ...prev,
+                                      [feedback.id]: {
+                                        ...prev[feedback.id],
+                                        response: value,
+                                      },
+                                    }));
+                                  }}
+                                >
+                                  <SelectTrigger className="w-[100px]">
+                                    <SelectValue placeholder="Select..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Yes">Yes</SelectItem>
+                                    <SelectItem value="No">No</SelectItem>
+                                    <SelectItem value="Tentative">Tentative</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                           </div>
 
@@ -234,7 +284,15 @@ export function TaskDetailModal({
                               <h4 className="font-medium">{contact?.name}</h4>
                               <p className="text-sm text-gray-500">{contact?.mobile}</p>
                             </div>
-                            <Badge variant="success">Completed</Badge>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="default">Completed</Badge>
+                              <Badge variant={
+                                feedback.response === "Yes" ? "default" :
+                                feedback.response === "No" ? "destructive" : "secondary"
+                              }>
+                                {feedback.response}
+                              </Badge>
+                            </div>
                           </div>
 
                           {feedback.feedback && (

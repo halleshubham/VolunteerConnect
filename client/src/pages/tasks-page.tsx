@@ -399,11 +399,17 @@ export default function TasksPage() {
 
         <TaskDetailModal
           isOpen={!!selectedTask}
-          onClose={() => setSelectedTask(null)}
+          onClose={() => {
+            setSelectedTask(null);
+            // Refresh both tasks and campaigns data
+            queryClient.invalidateQueries({ queryKey: ["/api/tasks", filters] });
+            queryClient.invalidateQueries({ queryKey: ["/api/tasks/campaigns", filters] });
+          }}
           task={selectedTask}
           onUpdateFeedback={handleUpdateFeedback}
           onCloseComplete={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/tasks", filters] });
+            queryClient.invalidateQueries({ queryKey: ["/api/tasks/campaigns", filters] });
           }}
         />
 

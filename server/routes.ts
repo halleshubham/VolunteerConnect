@@ -113,30 +113,6 @@ async function cleanupSessions() {
 // ✅ Run cleanup every 1 hour
 setInterval(cleanupSessions, 40 * 60 * 1000); // 1 hour
 
-// client.on('qr', (qr) => {
-//   console.log('QR Received');
-//   latestQR = qr;
-//   isReady = false;
-// });
-
-// client.on('ready', () => {
-//   console.log('✅ WhatsApp Client Ready');
-//   latestQR = null; // Clear QR once connected
-//   isReady = true;
-// });
-
-// client.on('auth_failure', () => {
-//   console.log('❌ Auth failure. QR will regenerate.');
-//   isReady = false;
-// });
-
-// client.on('disconnected', () => {
-//   console.log('❌ WhatsApp disconnected');
-//   isReady = false;
-// });
-
-// client.initialize();
-
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // Add this function after CampaignData interface
@@ -178,6 +154,43 @@ function distributeContactsEvenly(contacts: Array<{
   });
 
   return distribution;
+}
+
+// Add this function for handling username mapping during import
+async function mapAssignedToUsernames(contacts: any[], currentUsername: string, storage: any) {
+  // Get all existing users
+  const existingUsers = await storage.getUsers();
+  const existingUsernames = existingUsers.map(user => user.username);
+  
+  let unmappedCount = 0;
+  
+  const mappedContacts = contacts.map(contact => {
+    if (contact.assignedTo && Array.isArray(contact.assignedTo)) {
+      // Map each assignedTo entry
+      contact.assignedTo = contact.assignedTo.map((username: string) => {
+        if (!username || !existingUsernames.includes(username)) {
+          unmappedCount++;
+          return currentUsername;
+        }
+        return username;
+      });
+    } else if (contact.assignedTo) {
+      // If assignedTo is a string, convert to array and validate
+      const username = contact.assignedTo;
+      if (!existingUsernames.includes(username)) {
+        unmappedCount++;
+        contact.assignedTo = [currentUsername];
+      } else {
+        contact.assignedTo = [username];
+      }
+    } else {
+      // Default to current user if not set
+      contact.assignedTo = [currentUsername];
+    }
+    return contact;
+  });
+  
+  return { mappedContacts, unmappedCount };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -579,50 +592,6 @@ app.get('/auth/:userId', async (req, res) => {
         return res.status(400).json({ message: "value must be a string" });
       }
 
-      // Validate field values based on schema
-      const allowedFields = ["category", "priority", "status", "team", "occupation"];
-      if (!allowedFields.includes(field)) {
-        return res.status(400).json({ 
-          message: `Field must be one of: ${allowedFields.join(", ")}`
-        });
-      }
-
-      // Validate values based on field
-      const allowedValues: Record<string, string[]> = {
-        category: ["volunteer", "donor", "partner", "attendee"],
-        priority: ["high", "medium", "low"],
-        status: ["active", "inactive", "follow-up"],
-        team: [
-          "lokayat-general",
-          "abhivyakti",
-          "mahila-jagar-samiti",
-          "congress-party",
-          "ncp-party",
-          "shivsena-party",
-          "other-organisations",
-          "congress-jj-shakti",
-          "maharashtra-level"
-        ],
-        occupation: [
-          "school teacher",
-          "professor",
-          "doctor",
-          "lawyer",
-          "engineer",
-          "worker",
-          "retired",
-          "student",
-          "professional",
-          "other"
-        ]
-      };
-
-      if (!allowedValues[field].includes(value)) {
-        return res.status(400).json({
-          message: `Invalid value for ${field}. Must be one of: ${allowedValues[field].join(", ")}`
-        });
-      }
-
       // Perform bulk update
       const updatedCount = await storage.bulkUpdateContacts(contactIds, field, value);
 
@@ -671,7 +640,7 @@ app.get('/auth/:userId', async (req, res) => {
       { header: 'Area', key: 'area', width: 20 },
       { header: 'City', key: 'city', width: 20 },
       { header: 'State', key: 'state', width: 20 },
-      { header: 'Nation', key: 'nation', width: 20 },
+      { header: 'Organisation', key: 'organisation', width: 20 },
       { header: 'Pincode', key: 'pincode', width: 10 },
       { header: 'Occupation', key: 'occupation', width: 10 },
       { header: 'Priority', key: 'priority', width: 10 },
@@ -680,6 +649,8 @@ app.get('/auth/:userId', async (req, res) => {
       { header: 'CurrentStatus', key: 'currentstatus', width: 30 },
       { header: 'AssignedTo1', key: 'assignedTo1', width: 20 },
       { header: 'AssignedTo2', key: 'assignedTo2', width: 20 },
+      { header: 'Sex', key: 'sex', width: 10 },
+      { header: 'Team', key: 'team', width: 10 },
     ];
 
     // Add a sample row
@@ -690,14 +661,16 @@ app.get('/auth/:userId', async (req, res) => {
       area: 'Downtown',
       city: 'Mumbai',
       state: 'Maharashtra',
-      nation: 'India',
+      organisation: 'Lokayat',
       pincode: '400001',
       priority: 'high',
       category: 'volunteer',
       status: 'active',
       currentstatus: 'feedback note here',
       assignedTo1: 'Name1',
-      assignedTo2: 'Name2'
+      assignedTo2: 'Name2',
+      sex: 'Male',
+      team: 'lokayat-general',
     });
 
     // Set content type and headers for Excel file download
@@ -907,89 +880,65 @@ app.get('/auth/:userId', async (req, res) => {
     }
   });
 
-  // Add these routes after your existing task routes
-app.put("/api/task-feedback/:id", isAuthenticated, async (req, res, next) => {
-  try {
-    const feedbackId = parseInt(req.params.id);
-    if (isNaN(feedbackId)) {
-      return res.status(400).json({ message: "Invalid feedback ID" });
-    }
-
-    // Get the current feedback to check permissions
-    const feedback = await storage.getTaskFeedbackWithTask(feedbackId);
-
-    if (!feedback || !feedback.length) {
-      return res.status(404).json({ message: "Feedback not found" });
-    }
-
-    const user = req.user as User;
-    // Check if user is assigned to this task or is admin
-    if (user.role !== 'admin' && feedback[0].taskFeedback.assignedTo !== user.username) {
-      return res.status(403).json({ 
-        message: "You don't have permission to update this feedback" 
+  app.put("/api/task-feedback/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { feedback, isCompleted, completedAt, response } = req.body;
+      
+      const updatedFeedback = await storage.updateTaskFeedback(parseInt(id), {
+        feedback,
+        isCompleted,
+        completedAt,
+        response, // Make sure this is included
       });
-    }
 
-    // Update the feedback
-    const data: Partial<TaskFeedback> = {};
-    if (typeof req.body.isCompleted === 'boolean') {
-      data.isCompleted = req.body.isCompleted;
+      res.json(updatedFeedback);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
     }
-    if (typeof req.body.feedback === 'string') {
-      data.feedback = req.body.feedback;
-    }
+  });
 
-    const updatedFeedback = await storage.updateTaskFeedback(feedbackId, data);
-    
-    // Update task completion status
-    await storage.updateTaskCompletionStatus(feedback[0].taskFeedback.taskId);
-
-    res.json(updatedFeedback);
-  } catch (error) {
-    next(error);
+  function isNotNull(value) {
+    return value !== null && value !== undefined;
   }
-});
 
-function isNotNull(value) {
-  return value !== null && value !== undefined;
-}
-// Add this endpoint after other task routes
-app.get("/api/tasks/campaigns", isAuthenticated, async (req, res, next) => {
-  try {
-    const { status, assignedTo, fromDate, toDate } = req.query;
-    
-    let query = db
-      .select()
-      .from(tasks)
-      .where(
-        and(
-          isNotNull(tasks.campaignName),
-          // Add filters
-          status === 'completed' ? eq(tasks.isCompleted, true) : undefined,
-          status === 'pending' ? eq(tasks.isCompleted, false) : undefined,
-          assignedTo ? eq(tasks.assignedTo, assignedTo as string) : undefined,
-          fromDate ? gte(tasks.dueDate, new Date(fromDate as string)) : undefined,
-          toDate ? lte(tasks.dueDate, new Date(toDate as string)) : undefined,
+  app.get("/api/tasks/campaigns", isAuthenticated, async (req, res, next) => {
+    try {
+      const { status, assignedTo, fromDate, toDate } = req.query;
+      
+      let query = db
+        .select()
+        .from(tasks)
+        .where(
+          and(
+            isNotNull(tasks.campaignName),
+            // Add filters
+            status === 'completed' ? eq(tasks.isCompleted, true) : undefined,
+            status === 'pending' ? eq(tasks.isCompleted, false) : undefined,
+            assignedTo ? eq(tasks.assignedTo, assignedTo as string) : undefined,
+            fromDate ? gte(tasks.dueDate, new Date(fromDate as string)) : undefined,
+            toDate ? lte(tasks.dueDate, new Date(toDate as string)) : undefined,
+          )
         )
-      )
-      .orderBy(desc(tasks.createdAt));
+        .orderBy(desc(tasks.createdAt));
 
-    // Get tasks with their feedbacks
-    const tasksWithFeedback = await Promise.all(
-      (await query).map(async (task) => {
-        const feedbacks = await db
-          .select()
-          .from(taskFeedback)
-          .where(eq(taskFeedback.taskId, task.id));
-        return { ...task, feedbacks };
-      })
-    );
+      // Get tasks with their feedbacks
+      const tasksWithFeedback = await Promise.all(
+        (await query).map(async (task) => {
+          const feedbacks = await db
+            .select()
+            .from(taskFeedback)
+            .where(eq(taskFeedback.taskId, task.id));
+          return { ...task, feedbacks };
+        })
+      );
 
-    res.json(tasksWithFeedback);
-  } catch (error) {
-    next(error);
-  }
-});
+      res.json(tasksWithFeedback);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   // === IMPORT/EXPORT ROUTES ===
   
@@ -1020,140 +969,83 @@ app.get("/api/tasks/campaigns", isAuthenticated, async (req, res, next) => {
         return res.status(400).json({ message: "Invalid Excel file: no worksheets found" });
       }
       
+      const user = req.user as User;
       const result = {
         created: 0,
         updated: 0,
-        errors: [] as string[]
+        errors: [] as string[],
+        assignedToCurrentUser: 0
       };
+      
+      const processedContacts: any[] = [];
       
       // Skip header row
       worksheet.eachRow({ includeEmpty: false }, async (row, rowNumber) => {
         if (rowNumber === 1) return; // Skip header row
         
         try {
-              const mobile = row.getCell(2).text?.trim(); // Mobile column
-              if (!mobile) {
-                result.errors.push(`Row ${rowNumber}: Mobile number is required`);
-                return;
-              }
-              
-              const name = row.getCell(1).text?.trim(); // Name column
-              if (!name) {
-                result.errors.push(`Row ${rowNumber}: Name is required`);
-                return;
-              }
-              
-              // Check if contact exists
-              var contact = await storage.getContactByMobile(mobile);
-          
-          if (contact) {
-            // Update existing contact with any new info
-            const updateData: any = {};
-            
-            // Only update if the fields are provided and empty in the DB
-            const email = row.getCell(3).text?.trim();
-            if (email && !contact.email) updateData.email = email;
-            
-            const area = row.getCell(4).text?.trim();
-            if (area && !contact.area) updateData.area = area;
-            
-            const city = row.getCell(5).text?.trim();
-            if (city && !contact.city) updateData.city = city;
-            
-            const state = row.getCell(6).text?.trim();
-            if (state && !contact.state) updateData.state = state;
-
-            const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
-            if(assignedTo && !contact.assignedTo?.length) updateData.assignedTo = assignedTo;
-
-            const team = row.getCell(16).text?.trim();
-            if (team && !contact.team) updateData.team = team;
-            
-            const occupation = row.getCell(9).text?.trim();
-            if (occupation) updateData.occupation = occupation.toLowerCase();
-
-            const priority = row.getCell(10).text?.trim().toLowerCase();
-            if (priority) updateData.priority = priority.toLowerCase();
-            const category = row.getCell(11).text?.trim().toLowerCase();
-            if (category) updateData.category = category.toLowerCase();
-            const status = row.getCell(12).text?.trim().toLowerCase();
-            if (status) updateData.status = status.toLowerCase();
-
-            //Dont update assignment
-            // const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
-            // if(assignedTo) updateData.assignedTo = assignedTo;
-
-            // const team = row.getCell(16).text?.trim();
-            // if (team) updateData.team = team;
-
-            // Update if there are changes
-            if (Object.keys(updateData).length > 0) {
-              contact = await storage.updateContact(contact.id, updateData) as any;
-            }
-
-            result.updated++;
-          } else {
-            // Create new contact
-            const email = row.getCell(3).text?.trim();
-            const area = row.getCell(4).text?.trim() || 'Unknown';
-            const city = row.getCell(5).text?.trim() || 'Unknown';
-            const state = row.getCell(6).text?.trim() || 'Unknown';
-            const nation = row.getCell(7).text?.trim() || 'India';
-            const pincode = row.getCell(8).text?.trim();
-            const occupation = row.getCell(9).text?.trim();
-            const priority = row.getCell(10).text?.trim();
-            const category = row.getCell(11).text?.trim();
-            const status = row.getCell(12).text?.trim();
-            const assignedTo = [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()];
-            const team = row.getCell(16).text?.trim();
-
-            contact = await storage.createContact({
-              name,
-              mobile,
-              email,
-              area,
-              city,
-              state,
-              nation,
-              pincode,
-              occupation,
-              priority, // Default values
-              category,
-              status,
-              assignedTo,
-              team,
-            });
-            
-            result.created++;
+          const mobile = row.getCell(2).text?.trim(); // Mobile column
+          if (!mobile) {
+            result.errors.push(`Row ${rowNumber}: Mobile number is required`);
+            return;
           }
           
-          const note = row.getCell(13).text?.trim();
-          // Add attendance record for the event if contact exists
-          if (contact && note) {
-            await storage.createAttendance({
-              contactId: contact.id,
-              eventId: parseInt(eventId)
-            });
-
-            //add followup status
-            const followUpStatus = {
-              contactId: contact.id,
-              notes: note,
-              status: "completed", // pending, completed, cancelled
-              dueDate: new Date(),
-              completedDate: new Date(),
-              createdBy: req.user?.username || "actualadmin"
-            };
-            await storage.createFollowUp(followUpStatus)
+          const name = row.getCell(1).text?.trim(); // Name column
+          if (!name) {
+            result.errors.push(`Row ${rowNumber}: Name is required`);
+            return;
           }
           
+          const contactData: any = {
+            name,
+            mobile,
+            email: row.getCell(3).text?.trim(),
+            area: row.getCell(4).text?.trim() || 'Unknown',
+            city: row.getCell(5).text?.trim() || 'Unknown',
+            state: row.getCell(6).text?.trim() || 'Other',
+            nation: 'India',
+            pincode: row.getCell(8).text?.trim(),
+            occupation: row.getCell(9).text?.trim(),
+            priority: row.getCell(10).text?.trim(),
+            category: row.getCell(11).text?.trim(),
+            status: row.getCell(12).text?.trim(),
+            assignedTo: [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()],
+            team: row.getCell(16).text?.trim(),
+            sex: row.getCell(17).text?.trim(),
+            organisation: row.getCell(7).text?.trim(),
+          };
+          
+          processedContacts.push(contactData);
         } catch (error) {
-          console.error(error)
+          console.error(error);
           result.errors.push(`Row ${rowNumber}: ${(error as Error).message}`);
         }
       });
       
-      res.json(result);
+      // Map usernames before saving
+      const { mappedContacts, unmappedCount } = await mapAssignedToUsernames(
+        processedContacts,
+        req.user.username,
+        storage
+      );
+      
+      // Save contacts with mapped usernames
+      const savedContacts = await Promise.all(
+        mappedContacts.map(async (contact) => {
+          return await storage.createContact(contact);
+        })
+      );
+      
+      // Add notification about unmapped usernames
+      let message = `Successfully imported ${savedContacts.length} contacts.`;
+      if (unmappedCount > 0) {
+        message += ` ${unmappedCount} contacts had unknown assignees and were assigned to you.`;
+      }
+      
+      res.status(201).json({
+        message,
+        contacts: savedContacts
+      });
     } catch (error) {
       next(error);
     }
@@ -1220,7 +1112,10 @@ app.get("/api/tasks/campaigns", isAuthenticated, async (req, res, next) => {
         } else {
           // Handle manual campaign
           for (const [username, contacts] of Object.entries(campaignData.contactDistribution)) {
-            if (contacts.length === 0) continue;
+            if (contacts.length === 0) {
+              // Skip processing if no contacts
+              return;
+            }
 
             // Create task for this user
             const [task] = await trx

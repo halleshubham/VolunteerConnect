@@ -121,12 +121,12 @@ export default function ContactTable({
     switch (category) {
       case "volunteer":
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Volunteer</Badge>;
-      case "donor":
-        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">Donor</Badge>;
-      case "partner":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Partner</Badge>;
+      case "sympathiser":
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">Sympathiser</Badge>;
       case "attendee":
         return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Attendee</Badge>;
+      case "political":
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Political</Badge>;
       default:
         return <Badge>{category}</Badge>;
     }
@@ -201,8 +201,10 @@ export default function ContactTable({
                 <TableHead>Location</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Priority</TableHead>
+                <TableHead>Sex</TableHead>
+                <TableHead>Organisation</TableHead>
                 <TableHead>Activity Score</TableHead>
-                <TableHead>FUP Assignment</TableHead>
+                <TableHead>Assigned To</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -231,7 +233,9 @@ export default function ContactTable({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <a href={`tel:${contact.mobile}`}><div className="text-sm text-gray-900">{contact.mobile}</div></a>
+                      <a href={`tel:${contact.countryCode}${contact.mobile}`}>
+                        <div className="text-sm text-gray-900">{contact.countryCode} {contact.mobile}</div>
+                      </a>
                       <div className="text-sm text-gray-500">{contact.email}</div>
                     </TableCell>
                     <TableCell>
@@ -243,6 +247,12 @@ export default function ContactTable({
                     </TableCell>
                     <TableCell>
                       {getPriorityBadge(contact.priority)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-gray-900">{contact.sex}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-gray-900">{contact.organisation}</div>
                     </TableCell>
                     <TableCell>
                       {contact?.activityScore}
@@ -267,7 +277,7 @@ export default function ContactTable({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={11} className="text-center py-8 text-gray-500">
                     No contacts found
                   </TableCell>
                 </TableRow>

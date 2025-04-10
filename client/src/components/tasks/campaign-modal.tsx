@@ -66,6 +66,7 @@ export function CampaignModal({ isOpen, onClose, users, onSubmit }: CampaignModa
   const [previewMode, setPreviewMode] = useState(false);
   const [fileData, setFileData] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<any[]>([]);
+  const [selectAllUsers, setSelectAllUsers] = useState(false);
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: {
@@ -221,6 +222,23 @@ export function CampaignModal({ isOpen, onClose, users, onSubmit }: CampaignModa
                     <div>
                       <Label>Select Users</Label>
                       <div className="mt-2 space-y-2 border rounded-md p-4 max-h-40 overflow-y-auto">
+                        <div className="flex items-center space-x-2 pb-2 border-b">
+                          <Checkbox
+                            id="select-all"
+                            checked={selectAllUsers}
+                            onCheckedChange={(checked) => {
+                              setSelectAllUsers(!!checked);
+                              if (checked) {
+                                setSelectedUsers(users.map(user => user.username));
+                              } else {
+                                setSelectedUsers([]);
+                              }
+                            }}
+                          />
+                          <label htmlFor="select-all" className="text-sm font-medium">
+                            Select All Users
+                          </label>
+                        </div>
                         {users.map((user) => (
                           <div key={user.username} className="flex items-center space-x-2">
                             <Checkbox
@@ -231,6 +249,7 @@ export function CampaignModal({ isOpen, onClose, users, onSubmit }: CampaignModa
                                   setSelectedUsers([...selectedUsers, user.username]);
                                 } else {
                                   setSelectedUsers(selectedUsers.filter(u => u !== user.username));
+                                  setSelectAllUsers(false);
                                 }
                               }}
                             />

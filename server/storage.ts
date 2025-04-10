@@ -594,6 +594,8 @@ async updateTaskFeedback(id: number, data: Partial<TaskFeedback>): Promise<TaskF
       ...(data.isCompleted && { completedAt: new Date() }),
       // If marking as incomplete, clear completedAt
       ...(!data.isCompleted && { completedAt: null }),
+      // Ensure response is always set
+      response: data.response || "Tentative",
     })
     .where(eq(taskFeedback.id, id))
     .returning();
