@@ -1051,6 +1051,129 @@ app.get('/auth/:userId', async (req, res) => {
     }
   });
 
+  // Download follow-up template
+  app.get("/api/download-followup-template", isAuthenticated, async (req, res) => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Follow-up Data');
+      
+      // Add headers
+      worksheet.columns = [
+        { header: 'Name', key: 'name', width: 20 },
+        { header: 'Mobile Number', key: 'mobile', width: 15 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Notes', key: 'notes', width: 30 }
+      ];
+      
+      // Add sample data
+      worksheet.addRow({
+        name: 'John Doe',
+        mobile: '9876543210',
+        status: 'Interested',
+        notes: 'Will attend next event'
+      });
+      
+      worksheet.addRow({
+        name: 'Jane Smith',
+        mobile: '8765432109',
+        status: 'Not Interested',
+        notes: 'Too busy at the moment'
+      });
+      
+      // Style the header row
+      worksheet.getRow(1).font = { bold: true };
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=followup-template.xlsx');
+      
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error('Error generating template:', error);
+      res.status(500).json({ message: "Error generating template" });
+    }
+  });
+
+  // Import follow-up data from Excel
+  app.post("/api/import-followup", isAuthenticated, upload.single('file'), async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      const { eventId } = req.body;
+      if (!eventId) {
+        return res.status(400).json({ message: "eventId is required" });
+      }
+      
+      // Ensure the event exists
+      const existingEvent = await storage.getEventById(parseInt(eventId));
+      if (!existingEvent) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Process Excel file
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(req.file.buffer);
+      const worksheet = workbook.getWorksheet(1);
+      
+      if (!worksheet) {
+        return res.status(400).json({ message: "Invalid Excel file: no worksheets found" });
+      }
+      
+      const user = req.user as User;
+      const result = {
+        created: 0,
+        updated: 0,
+        errors: [] as string[]
+      };
+      
+      // Skip header row
+      worksheet.eachRow({ includeEmpty: false }, async (row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header row
+        
+        try {
+          const name = row.getCell(1).text?.trim(); // Name column
+          if (!name) {
+            result.errors.push(`Row ${rowNumber}: Name is required`);
+            return;
+          }
+          const mobile = row.getCell(2).text?.trim(); // Mobile column
+          const status = row.getCell(3).text?.trim(); // Status column
+          const notes = row.getCell(4).text?.trim(); // Notes column
+          
+          if (!mobile) {
+            result.errors.push(`Row ${rowNumber}: Missing mobile number`);
+            return;
+          }
+          
+          // Find contact by mobile number and update with follow-up data
+          const existingContact = await storage.getContactByMobile(mobile);
+          if (existingContact) {
+            const followUpData = {
+              contactId: existingContact.id,
+              status,
+              notes,
+              createdBy: user.username,
+              completedDate: new Date(),
+            };
+            
+            await storage.createFollowUp(followUpData);
+            result.created += 1;
+          } else {
+            result.errors.push(`Row ${rowNumber}: No contact found with mobile ${mobile}`);
+          }
+        } catch (error) {
+          result.errors.push(`Row ${rowNumber}: ${error.message || "Unknown error"}`);
+        }
+      });
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Add campaign creation endpoint
   app.post("/api/campaigns", isAuthenticated, async (req, res, next) => {
     try {

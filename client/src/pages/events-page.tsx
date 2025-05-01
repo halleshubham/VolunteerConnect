@@ -8,8 +8,9 @@ import Header from "@/components/layout/header";
 import EventTable from "@/components/events/event-table";
 import EventForm from "@/components/events/event-form";
 import EventImportModal from "@/components/events/event-import-modal";
+import FollowupImportModal from "@/components/events/followup-import-modal";
 import { Button } from "@/components/ui/button";
-import { Loader2, CalendarPlus, FileUp, FileDown } from "lucide-react";
+import { Loader2, CalendarPlus, FileUp, FileDown, ListChecks } from "lucide-react";
 import { z } from "zod";
 
 export default function EventsPage() {
@@ -17,6 +18,7 @@ export default function EventsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isEventFormOpen, setIsEventFormOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isFollowupImportModalOpen, setIsFollowupImportModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Fetch events
@@ -122,6 +124,14 @@ export default function EventsPage() {
                 <Button 
                   variant="outline"
                   className="inline-flex items-center"
+                  onClick={() => setIsFollowupImportModalOpen(true)}
+                >
+                  <ListChecks className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
+                  Import Follow-ups
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="inline-flex items-center"
                 >
                   <FileDown className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
                   Export
@@ -156,6 +166,13 @@ export default function EventsPage() {
       <EventImportModal 
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+        events={events}
+      />
+      
+      {/* Follow-up Import Modal */}
+      <FollowupImportModal 
+        isOpen={isFollowupImportModalOpen}
+        onClose={() => setIsFollowupImportModalOpen(false)}
         events={events}
       />
     </div>
