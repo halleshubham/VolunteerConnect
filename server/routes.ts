@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth } from "./auth";
+import { hashPassword, setupAuth } from "./auth";
 import multer from "multer";
 import { 
   insertContactSchema, 
@@ -1209,7 +1209,10 @@ app.get('/auth/:userId', async (req, res) => {
       }
 
       const userData = insertUserSchema.parse(req.body);
-      const user = await storage.createUser(userData);
+      const user = await storage.createUser({
+        ...userData,
+        password: await hashPassword(userData.password),
+      });
       
       // Remove password from response
       const { password, ...userWithoutPassword } = user;
