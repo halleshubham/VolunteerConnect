@@ -546,6 +546,8 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                         <SelectItem value="retired">Retired</SelectItem>
                         <SelectItem value="student">Student</SelectItem>
                         <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="student">Student</SelectItem>
+                        <SelectItem value="business">Business</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>

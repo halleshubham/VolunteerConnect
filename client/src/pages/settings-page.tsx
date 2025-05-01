@@ -377,7 +377,7 @@ export default function SettingsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="viewonly">viewonly</SelectItem>
                       </SelectContent>
                     </Select>
                     <Button 
