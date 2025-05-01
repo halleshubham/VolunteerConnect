@@ -10,7 +10,6 @@ import { db } from "./db";
 import { eq, and, ilike, desc, asc, or, sql, inArray } from "drizzle-orm";
 import { Pool } from "@neondatabase/serverless";
 import dotenv from 'dotenv';
-import bcrypt from 'bcrypt';
 dotenv.config();
 
 const PostgresSessionStore = connectPg(session);
@@ -117,15 +116,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    // Hash password before storing
-    const hashedPassword = await bcrypt.hash(insertUser.password, 10);
     
     const [user] = await db
       .insert(users)
-      .values({
-        ...insertUser,
-        password: hashedPassword
-      })
+      .values(insertUser)
       .returning();
     
     return user;
