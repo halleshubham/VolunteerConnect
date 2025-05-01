@@ -304,6 +304,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                         <SelectItem value="ncp-party">NCP Party</SelectItem>
                         <SelectItem value="shivsena-party">Shivsena Party</SelectItem>
                         <SelectItem value="other-organisations">Other Organisations</SelectItem>
+                        <SelectItem value="sja-maharashtra">SJA Maharashtra</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
