@@ -248,10 +248,10 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Mobile Number *</FormLabel>
                     <div className="flex">
-                      <Select
+                      {/* <Select
                         value={countryCode}
                         onValueChange={setCountryCode}
-                        className="w-24 mr-2"
+                        className="w-half mr-2"
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="+91" />
@@ -263,13 +263,14 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                           <SelectItem value="+61">+61</SelectItem>
                           <SelectItem value="+49">+49</SelectItem>
                         </SelectContent>
-                      </Select>
+                      </Select> */}
                       <Input
                         {...field}
                         type="tel"
                         placeholder="10-digit mobile number"
                         className="flex-1"
                         maxLength={10}
+                        value={field.value || contact?.mobile || ""}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D/g, '').slice(0, 10);
                           field.onChange(value);
@@ -287,10 +288,13 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Team *</FormLabel>
-                    <Select onValueChange={field.onChange}>
+                    <Select 
+                      value={field.value || contact?.team || ""}
+                      onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a Team" />
+                          <SelectValue 
+                            placeholder="Select a Team" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

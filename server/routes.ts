@@ -1010,8 +1010,8 @@ app.get('/auth/:userId', async (req, res) => {
             category: row.getCell(11).text?.trim(),
             status: row.getCell(12).text?.trim(),
             assignedTo: [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()],
-            team: row.getCell(16).text?.trim(),
-            sex: row.getCell(17).text?.trim(),
+            team: row.getCell(17).text?.trim(),
+            sex: row.getCell(16).text?.trim(),
             organisation: row.getCell(7).text?.trim(),
           };
           
