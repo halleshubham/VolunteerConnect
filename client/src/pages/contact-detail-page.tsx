@@ -322,10 +322,12 @@ const {
                       {/* Phone */}
                       <div className="flex items-start">
                         <Phone className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
-                        <div>
-                          <p className="text-sm text-gray-500">Mobile</p>
-                          <p className="font-medium">{contact.countryCode || '+91'} {contact.mobile}</p>
-                        </div>
+                        <a href={`tel:${contact.mobile}`}>
+                          <div>
+                            <p className="text-sm text-gray-500">Mobile</p>
+                            <p className="font-medium">{contact.countryCode || '+91'} {contact.mobile}</p>
+                          </div>
+                        </a>
                       </div>
                       
                       {/* Email */}

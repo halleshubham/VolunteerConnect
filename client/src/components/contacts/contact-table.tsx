@@ -233,7 +233,7 @@ export default function ContactTable({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <a href={`tel:${contact.countryCode}${contact.mobile}`}>
+                      <a href={`tel:${contact.mobile}`}>
                         <div className="text-sm text-gray-900">{contact.countryCode} {contact.mobile}</div>
                       </a>
                       <div className="text-sm text-gray-500">{contact.email}</div>
