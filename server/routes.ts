@@ -265,7 +265,7 @@ app.get('/auth/:userId', async (req, res) => {
   // Get all contacts with optional filtering
   app.get("/api/contacts", isAuthenticated, async (req, res, next) => {
     try {
-      const { search, category, priority, city, event, status, occupation, assignedTo, team } = req.query;
+      const { search, category, priority, city, eventId, status, occupation, assignedTo, team } = req.query;
       const user = req.user;
 
       // Handle search query
@@ -275,7 +275,7 @@ app.get('/auth/:userId', async (req, res) => {
       }
       const filters: any = {};
       // Handle filters
-      if (category || priority || city || event || status || occupation || assignedTo || team) {
+      if (category || priority || city || eventId || status || occupation || assignedTo || team) {
        
         
         if (category) filters.category = category;
@@ -283,7 +283,7 @@ app.get('/auth/:userId', async (req, res) => {
         if (city) filters.city = city;
         if (status) filters.status = status;
         if (occupation) filters.occupation = occupation;
-        if (event) filters.eventId = parseInt(event as string);
+        if (eventId) filters.eventId = parseInt(eventId);
         if (team) filters.team = team;
 
         
@@ -1093,7 +1093,14 @@ app.get('/auth/:userId', async (req, res) => {
           return await storage.createContact(contact);
         })
       );
-      
+
+      savedContacts.forEach(async (contact) => {
+        const contactId = contact.id;
+        await storage.createAttendance({
+          eventId,
+          contactId});
+      });
+
       // Add notification about unmapped usernames
       let message = `Successfully imported ${savedContacts.length} contacts.`;
       if (unmappedCount > 0) {

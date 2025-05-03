@@ -62,7 +62,7 @@ export default function ContactsPage() {
       if (filtersObj.category) params.append("category", filtersObj.category);
       if (filtersObj.priority) params.append("priority", filtersObj.priority);
       if (filtersObj.location) params.append("city", filtersObj.location);
-      if (filtersObj.eventId) params.append("event", filtersObj.eventId);
+      if (filtersObj.eventId) params.append("eventId", filtersObj.eventId);
       if (filtersObj.status) params.append("status", filtersObj.status);
       if (filtersObj.occupation) params.append("occupation", filtersObj.occupation);
       if (filtersObj.assignedTo) params.append("assignedTo", filtersObj.assignedTo);
