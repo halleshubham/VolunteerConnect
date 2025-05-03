@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Task, TaskFeedback, Contact } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "../ui/badge";
 import { format } from "date-fns";
-import { Phone } from "lucide-react";
+import { Phone, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -24,7 +24,7 @@ interface TaskDetailModalProps {
   onClose: () => void;
   task: (Task & { feedbacks: TaskFeedback[] }) | null;
   onUpdateFeedback: (feedbackId: number, data: Partial<TaskFeedback>) => Promise<void>;
-  onCloseComplete?: () => void;  // Add this new prop
+  onCloseComplete?: () => void;
 }
 
 export function TaskDetailModal({
@@ -49,14 +49,12 @@ export function TaskDetailModal({
     }
   };
 
-  // Reset submitted feedbacks when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setSubmittedFeedbacks(new Set());
     }
   }, [isOpen]);
 
-  // Fetch contacts for the feedbacks
   const { data: contacts = [] } = useQuery<Contact[]>({
     queryKey: ["/api/contactsByIdList", task?.feedbacks.map(f => f.contactId)],
     queryFn: async () => {
@@ -70,7 +68,6 @@ export function TaskDetailModal({
     enabled: !!task,
   });
 
-  // Initialize local state when task changes
   useEffect(() => {
     if (task) {
       const initialState = task.feedbacks.reduce((acc, feedback) => ({
@@ -78,12 +75,11 @@ export function TaskDetailModal({
         [feedback.id]: {
           feedback: feedback.feedback || "",
           isCompleted: feedback.isCompleted || false,
-          // Make sure to use the actual response from the feedback
           response: feedback.response || "Tentative" as TaskResponse,
         },
       }), {});
       setLocalFeedbacks(initialState);
-      console.log('Initial state:', initialState); // Add this for debugging
+      console.log('Initial state:', initialState);
     }
   }, [task]);
 
@@ -93,20 +89,18 @@ export function TaskDetailModal({
     const localFeedback = localFeedbacks[feedbackId];
     if (!localFeedback) return;
 
-    console.log('Submitting feedback:', localFeedback); // Add this for debugging
+    console.log('Submitting feedback:', localFeedback);
 
     await onUpdateFeedback(feedbackId, {
       feedback: localFeedback.feedback,
       isCompleted: localFeedback.isCompleted,
       completedAt: localFeedback.isCompleted ? new Date() : null,
-      response: localFeedback.response, // Make sure this is included
+      response: localFeedback.response,
     });
 
-    // Add to submitted feedbacks
     if (localFeedback.isCompleted) {
       setSubmittedFeedbacks(prev => new Set([...prev, feedbackId]));
     } else {
-      // If feedback is not completed, remove from submitted feedbacks
       setSubmittedFeedbacks(prev => {
         const newSet = new Set(prev);
         newSet.delete(feedbackId);
@@ -114,14 +108,12 @@ export function TaskDetailModal({
       });
     }
 
-    // Refresh the task data
     queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
     queryClient.invalidateQueries({ 
       queryKey: ["/api/contactsByIdList", task?.feedbacks.map(f => f.contactId)]
     });
   };
 
-  // Filter out submitted feedbacks from active feedbacks
   const activeFeedbacks = task.feedbacks.filter(
     f => !f.isCompleted && !submittedFeedbacks.has(f.id)
   );
@@ -129,7 +121,6 @@ export function TaskDetailModal({
   const progress = (completedCount / task.feedbacks.length) * 100;
 
   const handleTabChange = (value: string) => {
-    // Refresh tasks data when switching tabs
     queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
     queryClient.invalidateQueries({ 
       queryKey: ["/api/contactsByIdList", task?.feedbacks.map(f => f.contactId)]
@@ -138,12 +129,18 @@ export function TaskDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader className="sticky top-0 z-10 bg-white border-b pb-4">
+      <DialogContent className="max-w-3xl max-h-[100vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-0 sm:p-6 m-0 sm:m-4 h-full sm:h-auto rounded-none sm:rounded-lg">
+        {/* Add explicit close button with increased hit area */}
+        <DialogClose style={{'zIndex':'11'}} className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+          <X className="h-6 w-6" />
+          <span className="sr-only">Close</span>
+        </DialogClose>
+        
+        <DialogHeader className="sticky top-0 z-10 bg-white border-b pb-2 px-4 pt-4 sm:pb-4 sm:px-0 sm:pt-0 pr-10">
           <DialogTitle>{task.title}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 overflow-y-auto flex-1 p-6">
+        <div className="space-y-4 sm:space-y-6 overflow-y-auto flex-1 p-4 sm:p-6">
           <div>
             <h4 className="font-medium mb-2">Description</h4>
             <p className="text-gray-600">{task.description}</p>
@@ -181,9 +178,9 @@ export function TaskDetailModal({
 
                   return (
                     <Card key={feedback.id}>
-                      <CardContent className="pt-6">
+                      <CardContent className="pt-6 sm:pt-6 px-3 py-3 sm:px-6">
                         <div className="space-y-4">
-                          <div className="flex justify-between items-start">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                             <div>
                               <h4 className="font-medium">{contact?.name}</h4>
                               <p className="text-sm text-black flex">
@@ -192,8 +189,33 @@ export function TaskDetailModal({
                                 </a>
                               </p>
                             </div>
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center space-x-2">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:space-x-4">
+                              <div className="flex items-center justify-between w-full sm:w-auto space-x-2">
+                                <label className="text-sm">Response:</label>
+                                <Select
+                                  value={localFeedback?.response || "Tentative"}
+                                  onValueChange={(value: TaskResponse) => {
+                                    console.log('Selected response:', value); 
+                                    setLocalFeedbacks(prev => ({
+                                      ...prev,
+                                      [feedback.id]: {
+                                        ...prev[feedback.id],
+                                        response: value,
+                                      },
+                                    }));
+                                  }}
+                                >
+                                  <SelectTrigger className="w-[120px]">
+                                    <SelectValue placeholder="Select..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Yes">Yes</SelectItem>
+                                    <SelectItem value="No">No</SelectItem>
+                                    <SelectItem value="Tentative">Tentative</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex items-center justify-between w-full sm:w-auto space-x-2">
                                 <label className="text-sm">Mark as completed</label>
                                 <Checkbox 
                                   checked={localFeedback?.isCompleted}
@@ -207,31 +229,6 @@ export function TaskDetailModal({
                                     }));
                                   }}
                                 />
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <label className="text-sm">Response:</label>
-                                <Select
-                                  value={localFeedback?.response || "Tentative"}
-                                  onValueChange={(value: TaskResponse) => {
-                                    console.log('Selected response:', value); // Add this for debugging
-                                    setLocalFeedbacks(prev => ({
-                                      ...prev,
-                                      [feedback.id]: {
-                                        ...prev[feedback.id],
-                                        response: value,
-                                      },
-                                    }));
-                                  }}
-                                >
-                                  <SelectTrigger className="w-[100px]">
-                                    <SelectValue placeholder="Select..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Yes">Yes</SelectItem>
-                                    <SelectItem value="No">No</SelectItem>
-                                    <SelectItem value="Tentative">Tentative</SelectItem>
-                                  </SelectContent>
-                                </Select>
                               </div>
                             </div>
                           </div>
@@ -277,14 +274,14 @@ export function TaskDetailModal({
                   
                   return (
                     <Card key={feedback.id}>
-                      <CardContent className="p-4">
+                      <CardContent className="p-3 sm:p-4">
                         <div className="space-y-4">
-                          <div className="flex justify-between items-start">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
                             <div>
                               <h4 className="font-medium">{contact?.name}</h4>
                               <p className="text-sm text-gray-500">{contact?.mobile}</p>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 mt-2 sm:mt-0">
                               <Badge variant="default">Completed</Badge>
                               <Badge variant={
                                 feedback.response === "Yes" ? "default" :
