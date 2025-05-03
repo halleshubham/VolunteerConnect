@@ -548,6 +548,8 @@ export class DatabaseStorage implements IStorage {
         assignedTo: contacts.assignedTo,
         createdAt: contacts.createdAt,
         activityScore: sql<number>`COALESCE(COUNT(activities.id), 0)`.as('activityScore'),
+        sex: contacts.sex,
+        organisation: contacts.organisation,
       })
       .from(contacts)
       .leftJoin(activities, eq(contacts.id, activities.contactId));
