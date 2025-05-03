@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Search, Filter, Calendar, ChevronDown } from "lucide-react";
+import { Loader2, Search, Filter, Calendar, ChevronDown, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { TaskDetailModal } from "@/components/dashboard/task-detail-modal";
 import { TaskAssignmentModal } from "@/components/tasks/task-assignment-modal";
@@ -21,6 +21,16 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function TasksPage() {
   const { toast } = useToast();
@@ -36,8 +46,9 @@ export default function TasksPage() {
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'tasks' | 'campaigns'>('tasks');
+  const [confirmDeleteTask, setConfirmDeleteTask] = useState<number | null>(null);
+  const [confirmDeleteCampaign, setConfirmDeleteCampaign] = useState<string | null>(null);
 
-  // Fetch tasks with filters
   const { data: tasks = [], isLoading } = useQuery<(Task & { feedbacks: TaskFeedback[] })[]>({
     queryKey: ["/api/tasks", filters],
     queryFn: async () => {
@@ -70,7 +81,6 @@ export default function TasksPage() {
       if (!response.ok) throw new Error("Failed to fetch campaigns");
       const tasks = await response.json();
       
-      // Group tasks by campaign name
       return tasks.reduce((acc: Record<string, any[]>, task: Task & { feedbacks: TaskFeedback[] }) => {
         if (task.campaignName) {
           if (!acc[task.campaignName]) {
@@ -84,13 +94,11 @@ export default function TasksPage() {
     enabled: viewMode === 'campaigns'
   });
 
-  // Filter tasks by search term
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(search.toLowerCase()) ||
     task.description?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Update task feedback
   const handleUpdateFeedback = async (feedbackId: number, data: Partial<TaskFeedback>) => {
     try {
       await fetch(`/api/task-feedback/${feedbackId}`, {
@@ -113,7 +121,6 @@ export default function TasksPage() {
     }
   };
 
-  // Mutation for creating tasks
   const createTaskMutation = useMutation({
     mutationFn: async (data: {
       title: string;
@@ -148,7 +155,6 @@ export default function TasksPage() {
     },
   });
 
-  // Mutation for creating campaigns
   const createCampaignMutation = useMutation({
     mutationFn: async (data: {
       name: string;
@@ -158,14 +164,37 @@ export default function TasksPage() {
       contactDistribution: Record<string, Contact[]>;
       fileData?: any[];
     }) => {
-      const response = await fetch("/api/campaigns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create campaign");
-      return response.json();
+      // Show loading toast for large campaigns
+      const totalContacts = Object.values(data.contactDistribution).reduce(
+        (sum, contacts) => sum + contacts.length, 0
+      );
+      
+      let loadingToast;
+      if (totalContacts > 100) {
+        loadingToast = toast({
+          title: "Creating large campaign",
+          description: `Processing ${totalContacts} contacts. This may take a moment...`,
+          duration: 10000,
+        });
+      }
+      
+      try {
+        const response = await fetch("/api/campaigns", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || "Failed to create campaign");
+        }
+        
+        return response.json();
+      } catch (error) {
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -174,17 +203,17 @@ export default function TasksPage() {
       });
       setIsCampaignModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/campaigns"] });
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to create campaign",
         variant: "destructive",
       });
-    },
+    }
   });
 
-  // Query for fetching contacts by assignee
   const { data: assignedContacts = [], isLoading: isContactsLoading } = useQuery<Contact[]>({
     queryKey: ["/api/contacts", { assignedTo: selectedUser }],
     queryFn: async () => {
@@ -198,12 +227,77 @@ export default function TasksPage() {
     enabled: !!selectedUser,
   });
 
-  // Add useEffect to update selectedContacts when assignedContacts changes
   useEffect(() => {
     if (assignedContacts.length > 0) {
       setSelectedContacts(assignedContacts);
     }
   }, [assignedContacts]);
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: number) => {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete task");
+      }
+    },
+    onSuccess: () => {
+      // Refresh both tasks and campaigns data
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/campaigns"] });
+      
+      toast({
+        title: "Task deleted",
+        description: "The task has been deleted successfully",
+      });
+      
+      setConfirmDeleteTask(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete task",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const deleteCampaignMutation = useMutation({
+    mutationFn: async (campaignName: string) => {
+      const response = await fetch(`/api/campaigns/${encodeURIComponent(campaignName)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete campaign");
+      }
+    },
+    onSuccess: () => {
+      // Refresh both tasks and campaigns data
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/campaigns"] });
+      
+      toast({
+        title: "Campaign deleted",
+        description: "The campaign and all associated tasks have been deleted",
+      });
+      
+      setConfirmDeleteCampaign(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete campaign",
+        variant: "destructive",
+      });
+    }
+  });
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -296,9 +390,19 @@ export default function TasksPage() {
             ) : (
               <div className="grid gap-4">
                 {filteredTasks.map((task) => (
-                  <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => setSelectedTask(task)}>
-                    <CardContent className="p-4">
+                  <Card key={task.id} className="relative">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute top-2 right-2 h-8 w-8 text-gray-500 hover:text-red-500"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDeleteTask(task.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <CardContent className="p-4 cursor-pointer" onClick={() => setSelectedTask(task)}>
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="font-medium">{task.title}</h3>
@@ -334,9 +438,19 @@ export default function TasksPage() {
                           {tasks.length} tasks • Created {format(new Date(tasks[0].createdAt), "PPP")}
                         </p>
                       </div>
-                      <Badge variant="secondary">
-                        {tasks.filter(t => t.isCompleted).length} of {tasks.length} completed
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="secondary">
+                          {tasks.filter(t => t.isCompleted).length} of {tasks.length} completed
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-gray-500 hover:text-red-500"
+                          onClick={() => setConfirmDeleteCampaign(campaignName)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
@@ -401,7 +515,6 @@ export default function TasksPage() {
           isOpen={!!selectedTask}
           onClose={() => {
             setSelectedTask(null);
-            // Refresh both tasks and campaigns data
             queryClient.invalidateQueries({ queryKey: ["/api/tasks", filters] });
             queryClient.invalidateQueries({ queryKey: ["/api/tasks/campaigns", filters] });
           }}
@@ -421,6 +534,62 @@ export default function TasksPage() {
             await createCampaignMutation.mutateAsync(data);
           }}
         />
+
+        <AlertDialog open={confirmDeleteTask !== null} onOpenChange={() => setConfirmDeleteTask(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Task</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this task? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => {
+                  if (confirmDeleteTask !== null) {
+                    deleteTaskMutation.mutate(confirmDeleteTask);
+                  }
+                }}
+              >
+                {deleteTaskMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Delete"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={confirmDeleteCampaign !== null} onOpenChange={() => setConfirmDeleteCampaign(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this campaign? This will delete all tasks associated with this campaign. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => {
+                  if (confirmDeleteCampaign !== null) {
+                    deleteCampaignMutation.mutate(confirmDeleteCampaign);
+                  }
+                }}
+              >
+                {deleteCampaignMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Delete"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

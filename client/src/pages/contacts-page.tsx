@@ -10,7 +10,7 @@ import ContactTable from "@/components/contacts/contact-table";
 import ContactForm from "@/components/contacts/contact-form";
 import ContactDetailModal from "@/components/contacts/contact-detail-modal";
 import { Button } from "@/components/ui/button";
-import { Loader2, UserPlus, FileUp, FileDown } from "lucide-react";
+import { Loader2, UserPlus, FileUp, FileDown, Megaphone } from "lucide-react";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import WhatsappForm from "@/components/contacts/whatsapp-form";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import { TaskAssignmentModal } from "@/components/tasks/task-assignment-modal";
+import { CreateCampaignModal } from "@/components/contacts/create-campaign-modal";
 
 export default function ContactsPage() {
   const { toast } = useToast();
@@ -35,6 +36,7 @@ export default function ContactsPage() {
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
   const [isTaskAssignmentOpen, setIsTaskAssignmentOpen] = useState(false);
+  const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
   const [filterValues, setFilterValues] = useState<FilterValues>({
     search: "",
     category: "",
@@ -331,6 +333,9 @@ export default function ContactsPage() {
                       >
                         Delete Selected
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setIsCampaignModalOpen(true)}>
+                        Create Campaign
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
@@ -357,6 +362,14 @@ export default function ContactsPage() {
                 <FileDown className="-ml-1 mr-2 h-5 w-5 text-gray-500" />
                   Export
                 </Button>
+                {user?.role === 'admin' && contacts.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsCampaignModalOpen(true)}
+                  >
+                    <Megaphone className="mr-1 h-4 w-4" /> Create Campaign
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -458,6 +471,12 @@ export default function ContactsPage() {
             contacts: selectedContacts.map(c => c.id),
           });
         }}
+      />
+
+      <CreateCampaignModal
+        open={isCampaignModalOpen}
+        onClose={() => setIsCampaignModalOpen(false)}
+        contacts={contacts}
       />
     </div>
   );

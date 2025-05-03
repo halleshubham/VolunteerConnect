@@ -940,6 +940,64 @@ app.get('/auth/:userId', async (req, res) => {
     }
   });
 
+  // Delete a task
+  app.delete("/api/tasks/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const taskId = parseInt(req.params.id);
+      
+      // Get the task to verify permissions
+      const task = await db.query.tasks.findFirst({
+        where: eq(tasks.id, taskId)
+      });
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Check permissions - only admin or the creator can delete
+      if (user.role !== 'admin' && task.createdBy !== user.username) {
+        return res.status(403).json({ message: "You don't have permission to delete this task" });
+      }
+      
+      // Delete the task (cascade will delete related feedbacks)
+      await db.delete(tasks).where(eq(tasks.id, taskId));
+      
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Delete a campaign (deletes all tasks with the same campaign name)
+  app.delete("/api/campaigns/:name", isAuthenticated, async (req, res, next) => {
+    try {
+      const user = req.user as User;
+      const campaignName = req.params.name;
+      
+      // Only admins can delete campaigns
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: "Only admins can delete campaigns" });
+      }
+      
+      // Get all tasks in the campaign to check if it exists
+      const campaignTasks = await db.select()
+        .from(tasks)
+        .where(eq(tasks.campaignName, campaignName));
+      
+      if (campaignTasks.length === 0) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      // Delete all tasks in the campaign
+      await db.delete(tasks).where(eq(tasks.campaignName, campaignName));
+      
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // === IMPORT/EXPORT ROUTES ===
   
   // Import event registrations from Excel
@@ -1236,8 +1294,8 @@ app.get('/auth/:userId', async (req, res) => {
           // Handle manual campaign
           for (const [username, contacts] of Object.entries(campaignData.contactDistribution)) {
             if (contacts.length === 0) {
-              // Skip processing if no contacts
-              return;
+              // Skip this user but continue processing other users
+              continue;
             }
 
             // Create task for this user
@@ -1254,14 +1312,19 @@ app.get('/auth/:userId', async (req, res) => {
               .returning();
 
             // Create feedback entries for each contact
-            for (const contact of contacts) {
-              await trx
-                .insert(taskFeedback)
-                .values({
+            // Process contacts in batches to handle large payloads
+            const BATCH_SIZE = 100;
+            for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
+              const batch = contacts.slice(i, i + BATCH_SIZE);
+              
+              // Process each batch
+              await Promise.all(batch.map(contact => 
+                trx.insert(taskFeedback).values({
                   taskId: task.id,
                   contactId: contact.id,
                   assignedTo: username,
-                });
+                })
+              ));
             }
           }
         }
@@ -1269,6 +1332,7 @@ app.get('/auth/:userId', async (req, res) => {
 
       res.json({ message: "Campaign created successfully" });
     } catch (error) {
+      console.error("Campaign creation error:", error);
       next(error);
     }
   });

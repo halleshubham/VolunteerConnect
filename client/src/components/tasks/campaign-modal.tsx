@@ -291,7 +291,7 @@ export function CampaignModal({ isOpen, onClose, users, onSubmit }: CampaignModa
             <TabsContent value="import" className="space-y-6 mt-6">
               <div className="space-y-6">
                 <div>
-                  <Label>Campaign Name</Label>
+                  <Label>Campaign Name (To Be Implemented)</Label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -300,7 +300,7 @@ export function CampaignModal({ isOpen, onClose, users, onSubmit }: CampaignModa
                   />
                 </div>
 
-                <div>
+                {/* <div>
                   <Label>Description</Label>
                   <Textarea
                     value={description}
@@ -425,7 +425,7 @@ export function CampaignModal({ isOpen, onClose, users, onSubmit }: CampaignModa
                   >
                     Create Campaign
                   </Button>
-                </div>
+                </div> */}
               </div>
             </TabsContent>
           </Tabs>
