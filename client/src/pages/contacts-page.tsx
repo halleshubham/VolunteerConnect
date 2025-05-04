@@ -70,8 +70,7 @@ export default function ContactsPage() {
       
       const url = `/api/contacts${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await fetch(url, { credentials: "include" });
-      
-      
+
       if (!res.ok) {
         throw new Error("Failed to fetch contacts");
       }
