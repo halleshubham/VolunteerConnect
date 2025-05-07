@@ -268,14 +268,10 @@ app.get('/auth/:userId', async (req, res) => {
       const { search, category, priority, city, eventId, status, occupation, assignedTo, team } = req.query;
       const user = req.user;
 
-      // Handle search query
-      if (search && typeof search === 'string') {
-        const contacts = await storage.searchContacts(search);
-        return res.json(contacts);
-      }
+      
       const filters: any = {};
       // Handle filters
-      if (category || priority || city || eventId || status || occupation || assignedTo || team) {
+      if (search || category || priority || city || eventId || status || occupation || assignedTo || team) {
        
         
         if (category) filters.category = category;
@@ -287,13 +283,33 @@ app.get('/auth/:userId', async (req, res) => {
         if (team) filters.team = team;
 
         
-          if(user?.role=='admin'){
-            if(assignedTo) filters.assignedTo = assignedTo;
-          } else {
-            filters.assignedTo = user?.username;
-          }
+        if(user?.role=='admin'){
+           if(assignedTo) {
+             // Handle assignedTo as an array of values
+             if (typeof assignedTo === 'string') {
+               // Convert comma-separated string to array
+               filters.assignedTo = assignedTo.split(',').filter(Boolean).map(item => item.trim());
+             } else if (Array.isArray(assignedTo)) {
+               filters.assignedTo = assignedTo;
+             }
+           }
+         } else {
+           filters.assignedTo = user?.username;
+         }
         
         const contacts = await storage.filterContacts(filters);
+        // Handle search query
+        if (search && typeof search === 'string') {
+          const filteredContacts = contacts.filter((contact: Contact) => {
+            const searchLower = search.toLowerCase();
+            return (
+              contact.name.toLowerCase().includes(searchLower) ||
+              contact.mobile.toString().includes(searchLower)
+            );
+          });
+          return res.json(filteredContacts);
+        }
+
         return res.json(contacts);
       }
 

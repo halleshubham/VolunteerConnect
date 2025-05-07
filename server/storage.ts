@@ -73,7 +73,8 @@ export interface IStorage {
     eventId?: number;
     status?: string;
     occupation?: string;
-    assignedTo?: string[];
+    assignedTo?: string | string[];
+    team?: string;
   }): Promise<Contact[]>;
 
   getAllTasksWithFilters(filters: {
@@ -486,7 +487,8 @@ export class DatabaseStorage implements IStorage {
     eventId?: number;
     status?: string;
     occupation?: string;
-    assignedTo?: string[];
+    assignedTo?: string | string[];
+    team?: string;
   }): Promise<Contact[]> {
     if (filters.eventId) {
       // Special case for filtering by event attendance
@@ -507,31 +509,10 @@ export class DatabaseStorage implements IStorage {
         if (filters.priority) match = match && contact.priority === filters.priority;
         if (filters.city) match = match && contact.city.toLowerCase() === filters.city.toLowerCase();
         if (filters.status) match = match && contact.status === filters.status;
+        if (filters.occupation) match = match && contact.occupation === filters.occupation;
         return match;
       });
     } else {
-      // // Regular filtering without event attendance
-      // let query = db.select().from(contacts);
-      // const conditions = [];
-      
-      // if (filters.category) conditions.push(eq(contacts.category, filters.category));
-      // if (filters.priority) conditions.push(eq(contacts.priority, filters.priority));
-      // if (filters.city) conditions.push(ilike(contacts.city, filters.city));
-      // if (filters.status) conditions.push(eq(contacts.status, filters.status));
-      // if (filters.occupation) conditions.push(eq(contacts.occupation, filters.occupation));
-      // if (filters.assignedTo) conditions.push(sql`
-      //   EXISTS (
-      //     SELECT 1 FROM unnest(${contacts.assignedTo}) AS assignment
-      //     WHERE assignment ILIKE ${'%' + filters.assignedTo + '%'}
-      //   )
-      // `);
-
-      
-      // if (conditions.length > 0) {
-      //   query = (query as any).where(and(...conditions));
-      // }
-      
-      // return await query.orderBy(desc(contacts.createdAt));
       // Base query with LEFT JOIN to count activities
       let query = db
       .select({
@@ -562,15 +543,35 @@ export class DatabaseStorage implements IStorage {
       if (filters.city) conditions.push(ilike(contacts.city, filters.city));
       if (filters.status) conditions.push(eq(contacts.status, filters.status));
       if (filters.occupation) conditions.push(eq(contacts.occupation, filters.occupation));
-      if (filters.assignedTo) conditions.push(sql`
-      EXISTS (
-        SELECT 1 FROM unnest(${contacts.assignedTo}) AS assignment
-        WHERE assignment ILIKE ${'%' + filters.assignedTo + '%'}
-      )
-      `);
+      
+      // Updated handling for assignedTo as either string or array
+      if (filters.assignedTo) {
+        if (Array.isArray(filters.assignedTo)) {
+          // Handle array of assignedTo values with AND condition for intersection
+          // Each selected user must be in the contact's assignedTo array
+          filters.assignedTo.forEach(user => {
+            conditions.push(sql`
+              EXISTS (
+                SELECT 1 FROM unnest(${contacts.assignedTo}) AS assignment
+                WHERE assignment ILIKE ${user}
+              )
+            `);
+          });
+        } else {
+          // Handle single assignedTo value (backward compatibility)
+          conditions.push(sql`
+            EXISTS (
+              SELECT 1 FROM unnest(${contacts.assignedTo}) AS assignment
+              WHERE assignment ILIKE ${filters.assignedTo}
+            )
+          `);
+        }
+      }
+
+      if (filters.team) conditions.push(eq(contacts.team, filters.team));
 
       if (conditions.length > 0) {
-      query = (query as any).where(and(...conditions));
+        query = (query as any).where(and(...conditions));
       }
 
       // Group by contact to ensure correct count
