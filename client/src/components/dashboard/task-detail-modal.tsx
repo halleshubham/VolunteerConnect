@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "../ui/badge";
 import { format } from "date-fns";
-import { Phone, X, ExternalLink } from "lucide-react";
+import { Phone, X, ExternalLink, MessageSquare } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TaskResponse } from "@shared/schema";
+import WhatsappForm from "@/components/contacts/whatsapp-form";
+
 interface TaskDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -42,6 +44,7 @@ export function TaskDetailModal({
     isCompleted: boolean;
     response: TaskResponse;
   }>>({});
+  const [isWhatsappFormOpen, setIsWhatsappFormOpen] = useState(false);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -162,18 +165,28 @@ export function TaskDetailModal({
             <p className="text-gray-600">{task.description}</p>
           </div>
 
-          <div>
-            <h4 className="font-medium mb-2">Progress</h4>
-            <div className="flex items-center justify-between mb-2">
-              <span>{completedCount} of {task.feedbacks.length} completed</span>
-              <span>{Math.round(progress)}%</span>
+          <div className="flex justify-between items-center">
+            <div className="flex-1">
+              <h4 className="font-medium mb-2">Progress</h4>
+              <div className="flex items-center justify-between mb-2">
+                <span>{completedCount} of {task.feedbacks.length} completed</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-primary rounded-full h-2 transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-primary rounded-full h-2 transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <Button 
+              variant="outline"
+              className="ml-4 flex items-center gap-2" 
+              onClick={() => setIsWhatsappFormOpen(true)}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Send WhatsApp
+            </Button>
           </div>
 
           <Tabs defaultValue="active" className="w-full" onValueChange={handleTabChange}>
@@ -340,6 +353,14 @@ export function TaskDetailModal({
             </TabsContent>
           </Tabs>
         </div>
+        
+        <WhatsappForm 
+          isOpen={isWhatsappFormOpen}
+          onClose={() => setIsWhatsappFormOpen(false)}
+          contacts={contacts.filter(contact => 
+            task.feedbacks.some(feedback => feedback.contactId === contact.id)
+          )}
+        />
       </DialogContent>
     </Dialog>
   );
