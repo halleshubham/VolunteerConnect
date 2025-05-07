@@ -1,6 +1,10 @@
 import axios from 'axios';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCode } from 'react-qrcode-logo';
+import Sidebar from '@/components/layout/sidebar';
+import Header from '@/components/layout/header';
+import { useState } from 'react';
+import WhatsAppSender from '@/components/whatsapp/WhatsappSender';
 
 const fetchStatus = async () => {
   const res = await axios.get('/status');
@@ -15,6 +19,7 @@ const fetchQR = async () => {
 export default function WhatsAppConnection() {
   const queryClient = useQueryClient();
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   // WhatsApp Connection Status Query (polls every 5 sec)
   const { data: statusData } = useQuery({
     queryKey: ['whatsappStatus'],
@@ -30,19 +35,23 @@ export default function WhatsAppConnection() {
     refetchInterval: statusData?.isReady === false ? 5000 : false,
   });
 
-  return (
-    <div className="p-5">
-      <h2 className="text-xl font-bold">WhatsApp Connection Status</h2>
-      {statusData?.isReady ? (
-        <div className="text-green-600 font-semibold">✅ WhatsApp Connected</div>
-      ) : qrData?.qr ? (
-        <div className="mt-5">
-          <p>Scan this QR Code to Connect:</p>
-          <QRCode value={qrData.qr} size={300} />
+  return (    
+  <div className="flex h-screen overflow-hidden bg-gray-50">
+    <Sidebar />
+    
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <Header title="Contact Management" onOpenSidebar={() => setSidebarOpen(true)} />
+      
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        {/* Action Bar */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <WhatsAppSender numbers={[]}/>
+          </div>
         </div>
-      ) : (
-        <p>Waiting for QR Code...</p>
-      )}
+      </main>
     </div>
+  </div>
+    
   );
 }

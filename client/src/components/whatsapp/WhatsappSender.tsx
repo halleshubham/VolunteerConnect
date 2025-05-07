@@ -76,11 +76,11 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
         <button
           onClick={handleSend}
           className="bg-green-500 text-white px-4 py-2 rounded"
-          disabled={sendMutation.isLoading}
+          disabled={sendMutation.status === 'pending'}
         >
-          {sendMutation.isLoading ? 'Sending...' : 'Send'}
+          {sendMutation.status === 'pending' ? 'Wait Sending...' : 'Send'}
         </button>
-  
+        
         {response && (
           <div className="mt-5">
             <h2 className="font-semibold">Results:</h2>

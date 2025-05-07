@@ -52,7 +52,7 @@ function Router() {
       <Route path="/settings">
         {() => <ProtectedRoute component={SettingsPage} />}
       </Route>
-      <Route path="/whatsapp-status">
+      <Route path="/whatsapp">
         {() => <ProtectedRoute component={WhatsAppConnection} />}
       </Route>
       <Route path="/tasks">

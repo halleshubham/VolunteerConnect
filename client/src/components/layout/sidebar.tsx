@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Home, Users, Calendar, ClipboardList, Settings, LogOut, Menu, X } from "lucide-react";
+import { Home, Users, Calendar, ClipboardList, Settings, LogOut, Menu, X, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Sidebar() {
@@ -65,6 +65,14 @@ export default function Sidebar() {
                 }`}>
                   <Users className="h-5 w-5 mr-3" />
                   Contacts
+                </a>
+              </Link>
+              <Link href="/whatsapp" onClick={closeSidebar}>
+                <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 ${
+                  location.startsWith("/whatsapp") ? "bg-primary/10 text-primary border-l-3 border-primary" : "text-gray-700"
+                }`}>
+                  <Phone className="h-5 w-5 mr-3" />
+                  WhatsApp 
                 </a>
               </Link>
               {user?.role == 'admin' && 
