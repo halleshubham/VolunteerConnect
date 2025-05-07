@@ -1007,7 +1007,9 @@ app.get('/auth/:userId', async (req, res) => {
         return res.status(400).json({ message: "No file uploaded" });
       }
       
-      const { eventId } = req.body;
+      const { eventId, updateExisting } = req.body;
+      const shouldUpdateExisting = updateExisting === 'true'; // Convert string to boolean
+      
       if (!eventId) {
         return res.status(400).json({ message: "eventId is required" });
       }
@@ -1054,6 +1056,20 @@ app.get('/auth/:userId', async (req, res) => {
             return;
           }
           
+          // Check if contact already exists
+          const existingContact = await storage.getContactByMobile(mobile);
+          
+          if (existingContact && !shouldUpdateExisting) {
+            // If contact exists and updateExisting is false, just use it for attendance
+            // without modifying the contact information
+            await storage.createAttendance({
+              eventId: parseInt(eventId),
+              contactId: existingContact.id
+            });
+            result.updated += 1;
+            return; // Skip further processing for this contact
+          }
+          
           const contactData: any = {
             name,
             mobile,
@@ -1067,9 +1083,9 @@ app.get('/auth/:userId', async (req, res) => {
             priority: row.getCell(10).text?.trim(),
             category: row.getCell(11).text?.trim(),
             status: row.getCell(12).text?.trim(),
-            assignedTo: [row.getCell(14).text?.trim(), row.getCell(15).text?.trim()],
-            team: row.getCell(17).text?.trim(),
-            sex: row.getCell(16).text?.trim(),
+            assignedTo: [row.getCell(14).text?.trim().toLowerCase(), row.getCell(15).text?.trim().toLowerCase(), row.getCell(16).text?.trim().toLowerCase()],
+            team: row.getCell(18).text?.trim(),
+            sex: row.getCell(17).text?.trim(),
             organisation: row.getCell(7).text?.trim(),
           };
           
@@ -1090,26 +1106,43 @@ app.get('/auth/:userId', async (req, res) => {
       // Save contacts with mapped usernames
       const savedContacts = await Promise.all(
         mappedContacts.map(async (contact) => {
-          return await storage.createContact(contact);
+          if (shouldUpdateExisting) {
+            // Check if contact exists to decide whether to update or create
+            const existingContact = await storage.getContactByMobile(contact.mobile);
+            if (existingContact) {
+              const updatedContact = await storage.updateContact(existingContact.id, contact);
+              result.updated += 1;
+              return updatedContact;
+            }
+          }
+          
+          // Create new contact
+          const newContact = await storage.createContact(contact);
+          result.created += 1;
+          return newContact;
         })
       );
 
+      // Create event attendance records
       savedContacts.forEach(async (contact) => {
         const contactId = contact.id;
         await storage.createAttendance({
-          eventId,
-          contactId});
+          eventId: parseInt(eventId),
+          contactId
+        });
       });
 
       // Add notification about unmapped usernames
-      let message = `Successfully imported ${savedContacts.length} contacts.`;
+      let message = `Successfully imported ${result.created} new contacts and updated ${result.updated} existing contacts.`;
       if (unmappedCount > 0) {
         message += ` ${unmappedCount} contacts had unknown assignees and were assigned to you.`;
       }
       
       res.status(201).json({
         message,
-        contacts: savedContacts
+        created: result.created,
+        updated: result.updated,
+        errors: result.errors
       });
     } catch (error) {
       next(error);

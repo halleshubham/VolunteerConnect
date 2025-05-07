@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -38,6 +39,7 @@ import { FileSpreadsheet, Upload, Loader2, X } from "lucide-react";
 const importFormSchema = z.object({
   eventId: z.string().min(1, "Please select an event"),
   notes: z.string().optional(),
+  updateExisting: z.boolean().default(false),
 });
 
 type ImportFormValues = z.infer<typeof importFormSchema>;
@@ -59,6 +61,7 @@ export default function EventImportModal({ isOpen, onClose, events }: EventImpor
     defaultValues: {
       eventId: "",
       notes: "",
+      updateExisting: false,
     },
   });
 
@@ -115,6 +118,7 @@ export default function EventImportModal({ isOpen, onClose, events }: EventImpor
     const formData = new FormData();
     formData.append('file', file);
     formData.append('eventId', values.eventId);
+    formData.append('updateExisting', values.updateExisting.toString());
     if (values.notes) formData.append('notes', values.notes);
 
     importMutation.mutate(formData);
@@ -282,6 +286,28 @@ export default function EventImportModal({ isOpen, onClose, events }: EventImpor
                 </div>
               </div>
             </div>
+
+            <FormField
+              control={form.control}
+              name="updateExisting"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Update Existing Contacts</FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      If enabled, existing contacts will be updated with new data from the import file.
+                      Otherwise, only new contacts will be created and existing ones will remain unchanged.
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "../ui/badge";
 import { format } from "date-fns";
-import { Phone, X } from "lucide-react";
+import { Phone, X, ExternalLink } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TaskResponse } from "@shared/schema";
-
 interface TaskDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -183,11 +182,21 @@ export function TaskDetailModal({
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                             <div>
                               <h4 className="font-medium">{contact?.name}</h4>
-                              <p className="text-sm text-black flex">
+                              <div className="flex items-center gap-3">
                                 <a href={`tel:${contact?.mobile}`} className="text-sm text-blue-500 flex items-center">
                                     <Phone className="h-4 w-4 mt-1 mr-2" />{contact?.mobile}
                                 </a>
-                              </p>
+                                <a 
+                                  href={`/contacts/${contact?.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-500 flex items-center" 
+                                  title="Open profile in new tab"
+                                >
+                                  <ExternalLink className="h-4 w-4 mt-1 mr-1" />
+                                  Profile
+                                </a>
+                              </div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:space-x-4">
                               <div className="flex items-center justify-between w-full sm:w-auto space-x-2">
