@@ -121,6 +121,30 @@ export default function TasksPage() {
     }
   };
 
+  const handleCompleteTask = async (taskId: number) => {
+    try {
+      await fetch(`/api/tasks/${taskId}/complete`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      
+      toast({
+        title: "Task completed",
+        description: "The task has been marked as completed.",
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", filters] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/campaigns", filters] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete task",
+        variant: "destructive",
+      });
+    }
+  };
+
   const createTaskMutation = useMutation({
     mutationFn: async (data: {
       title: string;
@@ -520,6 +544,7 @@ export default function TasksPage() {
           }}
           task={selectedTask}
           onUpdateFeedback={handleUpdateFeedback}
+          onCompleteTask={handleCompleteTask}
           onCloseComplete={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/tasks", filters] });
             queryClient.invalidateQueries({ queryKey: ["/api/tasks/campaigns", filters] });

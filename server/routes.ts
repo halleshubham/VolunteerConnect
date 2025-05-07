@@ -892,7 +892,29 @@ app.get('/auth/:userId', async (req, res) => {
         response, // Make sure this is included
       });
 
+      // Get the taskId from the updated feedback
+      if (updatedFeedback && updatedFeedback.taskId) {
+        // Update the task completion status based on all feedback entries
+        await storage.updateTaskCompletionStatus(updatedFeedback.taskId);
+      }
+
       res.json(updatedFeedback);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  app.put("/api/tasks/:id/complete", isAuthenticated, async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.id);
+      
+      await db
+        .update(tasks)
+        .set({ isCompleted: true })
+        .where(eq(tasks.id, taskId));
+      
+      res.json({ success: true });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: errorMessage });

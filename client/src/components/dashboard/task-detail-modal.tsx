@@ -24,6 +24,7 @@ interface TaskDetailModalProps {
   task: (Task & { feedbacks: TaskFeedback[] }) | null;
   onUpdateFeedback: (feedbackId: number, data: Partial<TaskFeedback>) => Promise<void>;
   onCloseComplete?: () => void;
+  onCompleteTask?: (taskId: number) => Promise<void>;
 }
 
 export function TaskDetailModal({
@@ -32,6 +33,7 @@ export function TaskDetailModal({
   task,
   onUpdateFeedback,
   onCloseComplete,
+  onCompleteTask,
 }: TaskDetailModalProps) {
   const queryClient = useQueryClient();
   const [submittedFeedbacks, setSubmittedFeedbacks] = useState<Set<number>>(new Set());
@@ -105,6 +107,21 @@ export function TaskDetailModal({
         newSet.delete(feedbackId);
         return newSet;
       });
+    }
+
+    // After updating feedback, check if all feedbacks are completed
+    const allFeedbacksCompleted = task.feedbacks.every(f => {
+      // Check if this is the feedback we just updated
+      if (f.id === feedbackId) {
+        return localFeedback.isCompleted;
+      }
+      // Check the existing status for other feedbacks
+      return f.isCompleted || submittedFeedbacks.has(f.id);
+    });
+
+    if (allFeedbacksCompleted && !task.isCompleted && onCompleteTask) {
+      // If all are completed and task isn't already completed, mark the task as completed
+      await onCompleteTask(task.id);
     }
 
     queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
