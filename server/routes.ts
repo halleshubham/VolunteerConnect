@@ -1105,9 +1105,9 @@ app.get('/auth/:userId', async (req, res) => {
             priority: row.getCell(10).text?.trim(),
             category: row.getCell(11).text?.trim(),
             status: row.getCell(12).text?.trim(),
-            assignedTo: [row.getCell(14).text?.trim().toLowerCase(), row.getCell(15).text?.trim().toLowerCase(), row.getCell(16).text?.trim().toLowerCase()],
-            team: row.getCell(18).text?.trim(),
-            sex: row.getCell(17).text?.trim(),
+            assignedTo: [row.getCell(14).text?.trim().toLowerCase(), row.getCell(15).text?.trim().toLowerCase()],
+            team: row.getCell(17).text?.trim(),
+            sex: row.getCell(16).text?.trim(),
             organisation: row.getCell(7).text?.trim(),
           };
           
