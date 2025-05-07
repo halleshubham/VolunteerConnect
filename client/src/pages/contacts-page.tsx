@@ -65,10 +65,29 @@ export default function ContactsPage() {
       if (filtersObj.eventId) params.append("eventId", filtersObj.eventId);
       if (filtersObj.status) params.append("status", filtersObj.status);
       if (filtersObj.occupation) params.append("occupation", filtersObj.occupation);
-      if (filtersObj.assignedTo) params.append("assignedTo", filtersObj.assignedTo);
-      if (filtersObj.team) params.append("team", filtersObj.team);
       
-      const url = `/api/contacts${params.toString() ? `?${params.toString()}` : ''}`;
+      // Build the URL manually to avoid URL-encoding commas
+      let url = `/api/contacts`;
+      const queryParams: string[] = [];
+      
+      if (params.toString()) {
+        queryParams.push(params.toString());
+      }
+      
+      // Handle comma-separated assignedTo values without URL-encoding the commas
+      if (filtersObj.assignedTo) {
+        const assignedToValues = filtersObj.assignedTo.split(',').map(value => value.trim()).filter(Boolean);
+        queryParams.push(`assignedTo=${assignedToValues.join(',')}`);
+      }
+      
+      if (filtersObj.team) {
+        queryParams.push(`team=${encodeURIComponent(filtersObj.team)}`);
+      }
+      
+      if (queryParams.length > 0) {
+        url += '?' + queryParams.join('&');
+      }
+      
       const res = await fetch(url, { credentials: "include" });
 
       if (!res.ok) {
