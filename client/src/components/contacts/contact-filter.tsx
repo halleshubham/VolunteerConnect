@@ -260,9 +260,9 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="high">High (P0/P1)</SelectItem>
+                <SelectItem value="medium">Medium (P2)</SelectItem>
+                <SelectItem value="low">Low (P3)</SelectItem>
               </SelectContent>
             </Select>
           </div>

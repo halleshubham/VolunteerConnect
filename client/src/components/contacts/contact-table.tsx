@@ -160,19 +160,19 @@ export default function ContactTable({
       case "high":
         return (
           <Badge className="bg-red-100 text-red-800 hover:bg-red-200">
-            High
+            High (P0/P1)
           </Badge>
         );
       case "medium":
         return (
           <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">
-            Medium
+            Medium (P2)
           </Badge>
         );
       case "low":
         return (
           <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">
-            Low
+            Low (P3)
           </Badge>
         );
       default:
