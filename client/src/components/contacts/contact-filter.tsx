@@ -297,7 +297,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Occupations</SelectItem>
-                <SelectItem value="school teacher">School Teacher</SelectItem>
+                <SelectItem value="school-teacher">School Teacher</SelectItem>
                 <SelectItem value="professor">Professor</SelectItem>
                 <SelectItem value="doctor">Doctor</SelectItem>
                 <SelectItem value="lawyer">Lawyer</SelectItem>
