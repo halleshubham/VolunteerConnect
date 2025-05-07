@@ -419,6 +419,8 @@ app.get('/auth/:userId', async (req, res) => {
       if (existingContact) {
         return res.status(400).json({ message: "Contact with this mobile number already exists" });
       }
+
+      contactData.assignedTo = [req?.user?.username || ""];
       
       const contact = await storage.createContact(contactData);
       res.status(201).json(contact);

@@ -137,15 +137,15 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
       mobile: contact?.mobile || "",
       email: contact?.email || "",
       area: contact?.area || "",
-      city: contact?.city || "",
-      state: contact?.state || "",
+      city: contact?.city || "Pune",
+      state: contact?.state || "maharashtra",
       nation: contact?.nation || "India",
       pincode: contact?.pincode || "",
       category: contact?.category || "attendee",
       priority: contact?.priority || "medium",
       status: contact?.status || "active",
       notes: contact?.notes || "",
-      team: contact?.team || "",
+      team: contact?.team || "sja-maharashtra",
       assignedTo: contact?.assignedTo || [""],
       sex: contact?.sex || "",
       occupation: contact?.occupation || "",
@@ -357,7 +357,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 name="area"
                 render={({ field }) => (
                   <FormItem className="sm:col-span-3">
-                    <FormLabel>Area *</FormLabel>
+                    <FormLabel>Area</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="Neighborhood or area" />
                     </FormControl>

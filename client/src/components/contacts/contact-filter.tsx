@@ -186,7 +186,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                       }
                     }
                   }}
-                  value=""
+                  value="All"
                 >
                   <SelectTrigger id="assignedTo-trigger" className="w-full">
                     <SelectValue placeholder="Select user..." />
