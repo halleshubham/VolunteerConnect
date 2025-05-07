@@ -244,6 +244,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 <SelectItem value="congress-jj-shakti">Congress (Jai Jawan / Shakti)</SelectItem>
                 <SelectItem value="maharashtra-level">Maharashtra</SelectItem>
                 <SelectItem value="sja-maharashtra">SJA Maharashtra</SelectItem>
+                <SelectItem value="sja-teachers-front">SJA Teachers Front</SelectItem>
               </SelectContent>
             </Select>
           </div>
