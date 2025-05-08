@@ -834,6 +834,28 @@ app.get('/auth/:userId', async (req, res) => {
   });
 
   // === TASKS ROUTES ===
+
+  // Add a route to get campaign names list
+  app.get("/api/tasks/campaigns/list", isAuthenticated, async (req, res, next) => {
+    try {
+      // Get unique campaign names
+      const campaignNames = await db
+        .selectDistinct({ name: tasks.campaignName })
+        .from(tasks)
+        .where(isNotNull(tasks.campaignName))
+        .orderBy(tasks.campaignName);
+      
+      // Remove any null or undefined campaign names
+      const filteredCampaigns = campaignNames.filter(campaign => 
+        campaign.name !== null && campaign.name !== undefined
+      );
+      
+      res.json(filteredCampaigns);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Add task routes
   app.post("/api/tasks", isAuthenticated, async (req, res, next) => {
     try {
@@ -976,6 +998,25 @@ app.get('/auth/:userId', async (req, res) => {
       );
 
       res.json(tasksWithFeedback);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Add an endpoint for retrieving unique tasks
+  app.get("/api/tasks/unique", isAuthenticated, async (req, res, next) => {
+    try {
+      // Get unique tasks with relevant info
+      const uniqueTasks = await db
+        .select({
+          id: tasks.id,
+          title: tasks.title,
+          campaignName: tasks.campaignName,
+        })
+        .from(tasks)
+        .orderBy(tasks.createdAt);
+      
+      res.json(uniqueTasks);
     } catch (error) {
       next(error);
     }
@@ -1818,6 +1859,96 @@ app.get('/auth/:userId', async (req, res) => {
         .sort((a, b) => b.completionRate - a.completionRate);
       
       res.json(sortedCampaignStats);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Add a new endpoint for retrieving contacts by response type
+  app.get("/api/task-feedback/contacts-by-response", isAuthenticated, async (req, res, next) => {
+    try {
+      const { responseType, campaignName, timeRange } = req.query;
+      
+      if (!responseType) {
+        return res.status(400).json({ message: "Response type is required" });
+      }
+
+      // Calculate date range
+      let fromDate;
+      if (timeRange === "7days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 7);
+      } else if (timeRange === "30days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 30);
+      } else if (timeRange === "90days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 90);
+      }
+      
+      // Get tasks based on filters
+      let taskFilters = [];
+      if (campaignName && campaignName !== "all") {
+        taskFilters.push(eq(tasks.campaignName, campaignName as string));
+      }
+      if (fromDate) {
+        taskFilters.push(gte(tasks.createdAt, fromDate));
+      }
+      
+      const tasksList = taskFilters.length > 0
+        ? await db.select().from(tasks).where(and(...taskFilters))
+        : await db.select().from(tasks);
+      
+      const taskIds = tasksList.map(task => task.id);
+      
+      if (taskIds.length === 0) {
+        return res.json([]);
+      }
+      
+      // Get feedbacks with the specified response type
+      const feedbacks = await db.select()
+        .from(taskFeedback)
+        .where(
+          and(
+            inArray(taskFeedback.taskId, taskIds),
+            eq(taskFeedback.response, responseType as string)
+          )
+        );
+      
+      if (feedbacks.length === 0) {
+        return res.json([]);
+      }
+      
+      // Get contacts data
+      const contactIds = feedbacks.map(fb => fb.contactId);
+      const contactsList = await db.select()
+        .from(contactsTable)
+        .where(inArray(contactsTable.id, contactIds));
+      
+      // Build the result with contact and task info
+      const result = await Promise.all(
+        feedbacks.map(async (fb) => {
+          const contact = contactsList.find(c => c.id === fb.contactId);
+          const task = tasksList.find(t => t.id === fb.taskId);
+          
+          if (!contact || !task) return null;
+          
+          return {
+            id: contact.id,
+            name: contact.name,
+            mobile: contact.mobile,
+            email: contact.email,
+            city: contact.city,
+            response: fb.response,
+            feedback: fb.feedback,
+            taskTitle: task.title,
+            assignedTo: fb.assignedTo
+          };
+        })
+      );
+      
+      // Filter out null values and send response
+      res.json(result.filter(Boolean));
     } catch (error) {
       next(error);
     }

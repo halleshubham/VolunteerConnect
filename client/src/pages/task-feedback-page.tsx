@@ -6,13 +6,33 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, PieChart, BarChart4, Users, MapPin } from "lucide-react";
+import { Loader2, PieChart, BarChart4, Users, MapPin, X, Phone, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
 // Add chart components
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+
+// Add Dialog components for modals
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+
+// Add Table components for contact lists
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // Define types for the dashboard data
 type TaskStats = {
@@ -51,10 +71,26 @@ type CampaignStats = {
   responseStats: ResponseStats;
 };
 
+type ContactWithResponse = {
+  id: number;
+  name: string;
+  mobile: string;
+  email?: string;
+  city: string;
+  response: string;
+  feedback?: string;
+  taskTitle: string;
+  assignedTo: string;
+};
+
+// Define Response Type for the modal
+type ResponseType = "Yes" | "No" | "Tentative" | null;
+
 export default function TaskFeedbackPage() {
   const { toast } = useToast();
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
   const [timeRange, setTimeRange] = useState<string>("30days");
+  const [selectedResponseType, setSelectedResponseType] = useState<ResponseType>(null);
 
   // Main stats query for the overall metrics
   const { data: taskStats, isLoading: isTaskStatsLoading } = useQuery<TaskStats>({
@@ -172,6 +208,30 @@ export default function TaskFeedbackPage() {
     enabled: selectedCampaign === "all", // Only fetch when viewing all campaigns
   });
 
+  // Add new query for contacts by response type
+  const { data: contactsByResponse = [], isLoading: isContactsLoading } = useQuery<ContactWithResponse[]>({
+    queryKey: ["/api/task-feedback/contacts-by-response", timeRange, selectedCampaign, selectedResponseType],
+    queryFn: async () => {
+      if (!selectedResponseType) return [];
+      
+      const params = new URLSearchParams();
+      if (selectedCampaign !== "all") params.append("campaignName", selectedCampaign);
+      params.append("timeRange", timeRange);
+      params.append("responseType", selectedResponseType);
+      
+      const response = await fetch(`/api/task-feedback/contacts-by-response?${params}`, {
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch contacts");
+      }
+      
+      return response.json();
+    },
+    enabled: !!selectedResponseType,
+  });
+
   // Chart colors
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
   const RESPONSE_COLORS = { yes: '#4ade80', no: '#f87171', tentative: '#facc15' };
@@ -188,6 +248,26 @@ export default function TaskFeedbackPage() {
 
   // Format data for city distribution
   const cityData = cityStats?.sort((a, b) => b.count - a.count).slice(0, 10) || [];
+
+  // Format modal title based on selected response type
+  const getModalTitle = () => {
+    switch (selectedResponseType) {
+      case "Yes": return "Positive Responses";
+      case "No": return "Negative Responses";
+      case "Tentative": return "Tentative Responses";
+      default: return "Responses";
+    }
+  };
+
+  // Helper function to get response color
+  const getResponseColor = (response: string) => {
+    switch (response) {
+      case "Yes": return "bg-green-100 text-green-800";
+      case "No": return "bg-red-100 text-red-800";
+      case "Tentative": return "bg-yellow-100 text-yellow-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -411,7 +491,11 @@ export default function TaskFeedbackPage() {
                     </div>
                   ) : responseStats ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Card className="bg-green-50">
+                      {/* Positive Responses Card - now clickable */}
+                      <Card 
+                        className="bg-green-50 cursor-pointer hover:bg-green-100 transition-colors"
+                        onClick={() => setSelectedResponseType("Yes")}
+                      >
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium text-green-700">
                             Positive Responses (Yes)
@@ -419,14 +503,31 @@ export default function TaskFeedbackPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-3xl font-bold text-green-700">{responseStats.yes}</div>
-                          <p className="text-sm text-green-600 mt-2">
-                            {responseStats.yes > 0 && responseStats ? 
-                              `${Math.round((responseStats.yes / (responseStats.yes + responseStats.no + responseStats.tentative)) * 100)}%` : '0%'} of total responses
-                          </p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-sm text-green-600 mt-2">
+                              {responseStats.yes > 0 && responseStats ? 
+                                `${Math.round((responseStats.yes / (responseStats.yes + responseStats.no + responseStats.tentative)) * 100)}%` : '0%'} of total responses
+                            </p>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-green-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedResponseType("Yes");
+                              }}
+                            >
+                              View Contacts
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                       
-                      <Card className="bg-red-50">
+                      {/* Negative Responses Card - now clickable */}
+                      <Card 
+                        className="bg-red-50 cursor-pointer hover:bg-red-100 transition-colors"
+                        onClick={() => setSelectedResponseType("No")}
+                      >
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium text-red-700">
                             Negative Responses (No)
@@ -434,14 +535,31 @@ export default function TaskFeedbackPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-3xl font-bold text-red-700">{responseStats.no}</div>
-                          <p className="text-sm text-red-600 mt-2">
-                            {responseStats.no > 0 && responseStats ? 
-                              `${Math.round((responseStats.no / (responseStats.yes + responseStats.no + responseStats.tentative)) * 100)}%` : '0%'} of total responses
-                          </p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-sm text-red-600 mt-2">
+                              {responseStats.no > 0 && responseStats ? 
+                                `${Math.round((responseStats.no / (responseStats.yes + responseStats.no + responseStats.tentative)) * 100)}%` : '0%'} of total responses
+                            </p>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedResponseType("No");
+                              }}
+                            >
+                              View Contacts
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                       
-                      <Card className="bg-yellow-50">
+                      {/* Tentative Responses Card - now clickable */}
+                      <Card 
+                        className="bg-yellow-50 cursor-pointer hover:bg-yellow-100 transition-colors"
+                        onClick={() => setSelectedResponseType("Tentative")}
+                      >
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium text-yellow-700">
                             Tentative Responses
@@ -449,10 +567,23 @@ export default function TaskFeedbackPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-3xl font-bold text-yellow-700">{responseStats.tentative}</div>
-                          <p className="text-sm text-yellow-600 mt-2">
-                            {responseStats.tentative > 0 && responseStats ? 
-                              `${Math.round((responseStats.tentative / (responseStats.yes + responseStats.no + responseStats.tentative)) * 100)}%` : '0%'} of total responses
-                          </p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-sm text-yellow-600 mt-2">
+                              {responseStats.tentative > 0 && responseStats ? 
+                                `${Math.round((responseStats.tentative / (responseStats.yes + responseStats.no + responseStats.tentative)) * 100)}%` : '0%'} of total responses
+                            </p>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-yellow-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedResponseType("Tentative");
+                              }}
+                            >
+                              View Contacts
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     </div>
@@ -481,6 +612,9 @@ export default function TaskFeedbackPage() {
                               fill="#8884d8"
                               dataKey="value"
                               label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              onClick={(data) => {
+                                setSelectedResponseType(data.name as ResponseType);
+                              }}
                             >
                               {responseData.map((entry, index) => (
                                 <Cell 
@@ -492,11 +626,12 @@ export default function TaskFeedbackPage() {
                                         ? RESPONSE_COLORS.no 
                                         : RESPONSE_COLORS.tentative
                                   }
+                                  style={{ cursor: 'pointer' }}
                                 />
                               ))}
                             </Pie>
                             <Tooltip />
-                            <Legend />
+                            <Legend onClick={(entry) => setSelectedResponseType(entry.value as ResponseType)} />
                           </RePieChart>
                         </ResponsiveContainer>
                       </div>
@@ -707,6 +842,100 @@ export default function TaskFeedbackPage() {
           </Tabs>
         </main>
       </div>
+
+      {/* Contact List Modal */}
+      <Dialog open={!!selectedResponseType} onOpenChange={(open) => !open && setSelectedResponseType(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Badge className={
+                selectedResponseType === "Yes" ? "bg-green-100 text-green-800" : 
+                selectedResponseType === "No" ? "bg-red-100 text-red-800" : 
+                "bg-yellow-100 text-yellow-800"
+              }>
+                {selectedResponseType}
+              </Badge>
+              {getModalTitle()}
+            </DialogTitle>
+            <DialogDescription>
+              Contacts who have responded '{selectedResponseType}' to tasks
+              {selectedCampaign !== "all" && (
+                <span> in the campaign <strong>{selectedCampaign}</strong></span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+          
+          {isContactsLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : contactsByResponse.length > 0 ? (
+            <div className="mt-4">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>City</TableHead>
+                      <TableHead>Task</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Feedback</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contactsByResponse.map((contact) => (
+                      <TableRow key={`${contact.id}-${contact.taskTitle}`}>
+                        <TableCell className="font-medium">{contact.name}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              <span>{contact.mobile}</span>
+                            </div>
+                            {contact.email && (
+                              <div className="flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                <span className="text-xs">{contact.email}</span>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{contact.city || "Unknown"}</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={contact.taskTitle}>
+                          {contact.taskTitle}
+                        </TableCell>
+                        <TableCell>{contact.assignedTo}</TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <div className="text-sm">
+                            <Badge className={getResponseColor(contact.response)}>
+                              {contact.response}
+                            </Badge>
+                            {contact.feedback && (
+                              <p className="text-xs mt-1 text-gray-500 line-clamp-2" title={contact.feedback}>
+                                {contact.feedback}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              No contacts found with '{selectedResponseType}' response
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
