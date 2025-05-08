@@ -93,14 +93,14 @@ export default function Sidebar() {
                     Tasks
                   </a>
                 </Link>
-                <Link href="/task-feedback" onClick={closeSidebar}>
+                {user?.role == 'admin' && <Link href="/task-feedback" onClick={closeSidebar}>
                   <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 ${
                     location.startsWith("/task-feedback") ? "bg-primary/10 text-primary border-l-3 border-primary" : "text-gray-700"
                   }`}>
                     <BarChart4 className="h-5 w-5 mr-3" />
                     Tasks Feedback
                   </a>
-                </Link>
+                </Link>}
               </>}
             </div>
             
