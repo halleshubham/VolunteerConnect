@@ -19,11 +19,12 @@ import ExcelJS from 'exceljs';
 import whatsapp from 'whatsapp-web.js';
 import fs from 'fs/promises';
 import path from 'path';
-import { eq, and, ne, gte, lte, desc } from "drizzle-orm";
+import { eq, and, ne, gte, lte, desc, inArray } from "drizzle-orm";
 import { 
   tasks, 
   taskFeedback, 
-  contacts as contactsTable 
+  contacts as contactsTable,
+  users
 } from "../shared/schema";
 import { db } from "./db";
 
@@ -1509,6 +1510,314 @@ app.get('/auth/:userId', async (req, res) => {
 
       await storage.deleteUser(req.params.username);
       res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Response stats endpoint
+  app.get("/api/task-feedback/response-stats", isAuthenticated, async (req, res, next) => {
+    try {
+      const { campaignName, timeRange } = req.query;
+      
+      // Calculate date range
+      let fromDate;
+      if (timeRange === "7days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 7);
+      } else if (timeRange === "30days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 30);
+      } else if (timeRange === "90days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 90);
+      }
+      
+      // Build task filters
+      const taskFilters = [];
+      if (campaignName && campaignName !== "all") {
+        taskFilters.push(eq(tasks.campaignName, campaignName as string));
+      }
+      if (fromDate) {
+        taskFilters.push(gte(tasks.createdAt, fromDate));
+      }
+      
+      // Get tasks based on filters
+      let taskQuery = db.select().from(tasks);
+      if (taskFilters.length > 0) {
+        taskQuery = taskQuery.where(and(...taskFilters));
+      }
+      
+      const tasksList = await taskQuery;
+      const taskIds = tasksList.map(task => task.id);
+      
+      // Get feedback data for these tasks
+      const feedbackData = await db.select()
+        .from(taskFeedback)
+        .where(taskIds.length > 0 ? inArray(taskFeedback.taskId, taskIds) : undefined);
+      
+      // Count response types
+      const yesResponses = feedbackData.filter(fb => fb.response === "Yes").length;
+      const noResponses = feedbackData.filter(fb => fb.response === "No").length;
+      const tentativeResponses = feedbackData.filter(fb => fb.response === "Tentative").length;
+      
+      res.json({
+        yes: yesResponses,
+        no: noResponses,
+        tentative: tentativeResponses
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // User task stats endpoint
+  app.get("/api/task-feedback/user-stats", isAuthenticated, async (req, res, next) => {
+    try {
+      const { campaignName, timeRange } = req.query;
+      
+      // Calculate date range
+      let fromDate;
+      if (timeRange === "7days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 7);
+      } else if (timeRange === "30days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 30);
+      } else if (timeRange === "90days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 90);
+      }
+      
+      // Get all users
+      const allUsers = await db.select().from(users);
+      
+      const userStats = await Promise.all(
+        allUsers.map(async (user) => {
+          // Build filters for this user
+          const filters = [eq(taskFeedback.assignedTo, user.username)];
+          
+          if (campaignName && campaignName !== "all") {
+            const userTasks = await db.select()
+              .from(tasks)
+              .where(eq(tasks.campaignName, campaignName as string));
+            
+            const userTaskIds = userTasks.map(task => task.id);
+            if (userTaskIds.length > 0) {
+              filters.push(inArray(taskFeedback.taskId, userTaskIds));
+            } else {
+              // No tasks for this campaign, return empty stats
+              return {
+                username: user.username,
+                assigned: 0,
+                completed: 0,
+                completionRate: 0
+              };
+            }
+          }
+          
+          if (fromDate) {
+            const tasksWithinRange = await db.select()
+              .from(tasks)
+              .where(gte(tasks.createdAt, fromDate));
+            
+            const tasksWithinRangeIds = tasksWithinRange.map(task => task.id);
+            if (tasksWithinRangeIds.length > 0) {
+              filters.push(inArray(taskFeedback.taskId, tasksWithinRangeIds));
+            }
+          }
+          
+          // Get assigned feedbacks
+          const assignedFeedbacks = await db.select()
+            .from(taskFeedback)
+            .where(and(...filters));
+          
+          // Count completed
+          const completedFeedbacks = assignedFeedbacks.filter(fb => fb.isCompleted);
+          
+          // Calculate stats
+          const assigned = assignedFeedbacks.length;
+          const completed = completedFeedbacks.length;
+          const completionRate = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
+          
+          return {
+            username: user.username,
+            assigned,
+            completed,
+            completionRate
+          };
+        })
+      );
+      
+      // Filter out users with no assignments and sort by completion rate
+      const filteredUserStats = userStats
+        .filter(stats => stats.assigned > 0)
+        .sort((a, b) => b.completionRate - a.completionRate);
+      
+      res.json(filteredUserStats);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // City stats endpoint
+  app.get("/api/task-feedback/city-stats", isAuthenticated, async (req, res, next) => {
+    try {
+      const { campaignName, timeRange } = req.query;
+      
+      // Calculate date range
+      let fromDate;
+      if (timeRange === "7days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 7);
+      } else if (timeRange === "30days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 30);
+      } else if (timeRange === "90days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 90);
+      }
+      
+      // Get tasks based on filters
+      let taskFilters = [];
+      if (campaignName && campaignName !== "all") {
+        taskFilters.push(eq(tasks.campaignName, campaignName as string));
+      }
+      if (fromDate) {
+        taskFilters.push(gte(tasks.createdAt, fromDate));
+      }
+      
+      const tasksList = taskFilters.length > 0
+        ? await db.select().from(tasks).where(and(...taskFilters))
+        : await db.select().from(tasks);
+      
+      const taskIds = tasksList.map(task => task.id);
+      
+      // Get all feedback for these tasks
+      const feedbacks = taskIds.length > 0
+        ? await db.select().from(taskFeedback).where(inArray(taskFeedback.taskId, taskIds))
+        : await db.select().from(taskFeedback);
+      
+      // Get all contacts
+      const contactIds = feedbacks.map(fb => fb.contactId);
+      const contactsList = contactIds.length > 0
+        ? await db.select().from(contactsTable).where(inArray(contactsTable.id, contactIds))
+        : [];
+      
+      // Map feedback to contacts with their cities
+      const contactFeedbacks = feedbacks.map(fb => {
+        const contact = contactsList.find(c => c.id === fb.contactId);
+        return {
+          city: contact?.city || "Unknown",
+          response: fb.response
+        };
+      });
+      
+      // Group by city and count
+      const cityStats = contactFeedbacks.reduce((acc, { city, response }) => {
+        if (!acc[city]) {
+          acc[city] = { count: 0, yesResponses: 0, noResponses: 0, tentativeResponses: 0 };
+        }
+        
+        acc[city].count++;
+        
+        if (response === "Yes") {
+          acc[city].yesResponses++;
+        } else if (response === "No") {
+          acc[city].noResponses++;
+        } else if (response === "Tentative") {
+          acc[city].tentativeResponses++;
+        }
+        
+        return acc;
+      }, {});
+      
+      // Convert to array and sort by count
+      const result = Object.entries(cityStats).map(([city, stats]) => ({
+        city,
+        ...stats
+      })).sort((a, b) => b.count - a.count);
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Campaign stats endpoint
+  app.get("/api/task-feedback/campaign-stats", isAuthenticated, async (req, res, next) => {
+    try {
+      const { timeRange } = req.query;
+      
+      // Calculate date range
+      let fromDate;
+      if (timeRange === "7days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 7);
+      } else if (timeRange === "30days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 30);
+      } else if (timeRange === "90days") {
+        fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 90);
+      }
+      
+      // Get all campaigns
+      const campaignNames = await db
+        .selectDistinct({ name: tasks.campaignName })
+        .from(tasks)
+        .where(isNotNull(tasks.campaignName));
+      
+      const campaignStats = await Promise.all(
+        campaignNames.map(async ({ name }) => {
+          // Build filters
+          const filters = [eq(tasks.campaignName, name)];
+          if (fromDate) {
+            filters.push(gte(tasks.createdAt, fromDate));
+          }
+          
+          // Get tasks for this campaign
+          const campaignTasks = await db
+            .select()
+            .from(tasks)
+            .where(and(...filters));
+          
+          // Calculate task stats
+          const total = campaignTasks.length;
+          const completed = campaignTasks.filter(task => task.isCompleted).length;
+          const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+          
+          // Get feedback for these tasks
+          const taskIds = campaignTasks.map(task => task.id);
+          const feedbacks = taskIds.length > 0
+            ? await db.select().from(taskFeedback).where(inArray(taskFeedback.taskId, taskIds))
+            : [];
+          
+          // Count responses
+          const yesResponses = feedbacks.filter(fb => fb.response === "Yes").length;
+          const noResponses = feedbacks.filter(fb => fb.response === "No").length;
+          const tentativeResponses = feedbacks.filter(fb => fb.response === "Tentative").length;
+          
+          return {
+            name,
+            total,
+            completed,
+            completionRate,
+            responseStats: {
+              yes: yesResponses,
+              no: noResponses,
+              tentative: tentativeResponses
+            }
+          };
+        })
+      );
+      
+      // Sort campaigns by completion rate
+      const sortedCampaignStats = campaignStats
+        .filter(stats => stats.total > 0)
+        .sort((a, b) => b.completionRate - a.completionRate);
+      
+      res.json(sortedCampaignStats);
     } catch (error) {
       next(error);
     }

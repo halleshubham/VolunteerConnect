@@ -306,6 +306,8 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 <SelectItem value="retired">Retired</SelectItem>
                 <SelectItem value="student">Student</SelectItem>
                 <SelectItem value="professional">Professional</SelectItem>
+                <SelectItem value="housewife">Housewife</SelectItem>
+                <SelectItem value="journalist">Journalist</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>

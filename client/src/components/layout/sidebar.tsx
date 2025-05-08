@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Home, Users, Calendar, ClipboardList, Settings, LogOut, Menu, X, Phone } from "lucide-react";
+import { Home, Users, Calendar, ClipboardList, Settings, LogOut, Menu, X, Phone, BarChart4} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Sidebar() {
@@ -91,6 +91,14 @@ export default function Sidebar() {
                   }`}>
                     <ClipboardList className="h-5 w-5 mr-3" />
                     Tasks
+                  </a>
+                </Link>
+                <Link href="/task-feedback" onClick={closeSidebar}>
+                  <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-gray-100 ${
+                    location.startsWith("/task-feedback") ? "bg-primary/10 text-primary border-l-3 border-primary" : "text-gray-700"
+                  }`}>
+                    <BarChart4 className="h-5 w-5 mr-3" />
+                    Tasks Feedback
                   </a>
                 </Link>
               </>}

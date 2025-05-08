@@ -40,10 +40,12 @@ export function BulkUpdateModal({
       "shivsena-party",
       "other-organisations",
       "congress-jj-shakti",
-      "maharashtra-level"
+      "maharashtra-level",
+      "sja-maharashtra",
+      "sja-teachers-front"
     ],
     occupation: [
-      "school teacher",
+      "school-teacher",
       "professor",
       "doctor",
       "lawyer",
@@ -52,7 +54,10 @@ export function BulkUpdateModal({
       "retired",
       "student",
       "professional",
-      "other"
+      "other",
+      "journalist",
+      "business",
+      "housewife",
     ],
     sex: ["male", "female", "other", "prefer_not_to_say"],
   };

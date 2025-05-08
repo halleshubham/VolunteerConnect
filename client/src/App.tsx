@@ -13,6 +13,7 @@ import EventAttendancePage from "./pages/event-attendance-page";
 import SettingsPage from "./pages/settings-page";
 import WhatsAppConnection from "./pages/whatsapp-page";
 import TasksPage from "./pages/tasks-page";
+import TaskFeedbackPage from "./pages/task-feedback-page";
 
 // Route wrapper component that redirects already authenticated users from auth page
 function AuthRouteWrapper() {
@@ -57,6 +58,9 @@ function Router() {
       </Route>
       <Route path="/tasks">
         {() => <ProtectedRoute component={TasksPage} />}
+      </Route>
+      <Route path="/task-feedback">
+        {() => <ProtectedRoute component={TaskFeedbackPage} />}
       </Route>
       <Route path="*" component={NotFound} />
     </Switch>
