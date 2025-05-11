@@ -48,7 +48,8 @@ export default function ContactDetailPage() {
 
   const {user} = useAuth();
 
-  const contactId = params?.id ? parseInt(params.id) : null;
+  // Ensure contactId is a valid number
+  const contactId = params?.id && !isNaN(parseInt(params.id)) ? parseInt(params.id) : null;
 
   // Fetch contact's feedbacks
   const { 
@@ -188,8 +189,6 @@ const {
         return "Congress Jai Jawan / Shakti Abhiyan";
       case "maharashtra-level":
         return "Maharashtra Level";
-      case "sja-maharashtra":
-        return "SJA Maharashtra";
       case "sja-teachers-front":
         return "SJA Teachers Front";
       default:
@@ -229,8 +228,18 @@ const {
     navigate("/contacts");
   };
 
-  // Redirect if error or invalid ID
+  // Redirect if error, invalid ID, or contact not found
   useEffect(() => {
+    if (!contactId) {
+      toast({
+        title: "Error",
+        description: "Invalid contact ID. Redirecting to contacts page.",
+        variant: "destructive",
+      });
+      navigate("/contacts");
+      return;
+    }
+
     if (contactError || (!isContactLoading && !contact)) {
       toast({
         title: "Error",
@@ -239,7 +248,7 @@ const {
       });
       navigate("/contacts");
     }
-  }, [contactError, isContactLoading, contact, navigate, toast]);
+  }, [contactId, contactError, isContactLoading, contact, navigate, toast]);
 
   // Loading state
   if (isContactLoading) {

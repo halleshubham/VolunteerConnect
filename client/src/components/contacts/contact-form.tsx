@@ -47,7 +47,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQuery } from "@tanstack/react-query";
-import {User} from "@shared/schema";
+import { User } from "@shared/schema";
 
 // Create a contact form type that handles all the field types correctly
 type ContactFormData = {
@@ -93,12 +93,11 @@ type ContactFormProps = {
   onClose: () => void;
   onSubmit: (data: z.infer<typeof formSchema>) => void;
   contact?: Contact;
+  initialMobile?: string;
 };
 
-
-export default function ContactForm({ isOpen, onClose, onSubmit, contact }: ContactFormProps) {
+export default function ContactForm({ isOpen, onClose, onSubmit, contact, initialMobile }: ContactFormProps) {
   const [countryCode, setCountryCode] = useState("+91");
-
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -134,7 +133,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: contact?.name || "",
-      mobile: contact?.mobile || "",
+      mobile: initialMobile || contact?.mobile || "",
       email: contact?.email || "",
       area: contact?.area || "",
       city: contact?.city || "Pune",
@@ -155,7 +154,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
     },
   });
 
-  // Reset form when contact changes
+  // Reset form when contact changes or when initialMobile changes
   useEffect(() => {
     if (contact) {
       form.reset({
@@ -179,8 +178,10 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
         organisation: contact?.organisation || "",
         countryCode: contact?.countryCode || "+91",
       });
+    } else if (initialMobile) {
+      form.setValue("mobile", initialMobile);
     }
-  }, [contact, form]);
+  }, [contact, initialMobile, form]);
 
   // Handle form submission with validation
   const handleSubmit = (data: FormSchemaType) => {
@@ -248,22 +249,6 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Mobile Number *</FormLabel>
                     <div className="flex">
-                      {/* <Select
-                        value={countryCode}
-                        onValueChange={setCountryCode}
-                        className="w-half mr-2"
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="+91" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="+91">+91</SelectItem>
-                          <SelectItem value="+1">+1</SelectItem>
-                          <SelectItem value="+44">+44</SelectItem>
-                          <SelectItem value="+61">+61</SelectItem>
-                          <SelectItem value="+49">+49</SelectItem>
-                        </SelectContent>
-                      </Select> */}
                       <Input
                         {...field}
                         type="tel"

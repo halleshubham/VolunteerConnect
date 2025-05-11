@@ -326,6 +326,26 @@ app.get('/auth/:userId', async (req, res) => {
     }
   });
 
+  // Add this new route after other contact routes
+  app.get("/api/contacts/search", isAuthenticated, async (req, res, next) => {
+    try {
+      const { mobile } = req.query;
+      
+      if (!mobile || typeof mobile !== 'string') {
+        return res.status(400).json({ message: "Mobile number is required" });
+      }
+      
+      
+      // Find contact by mobile number
+      const contact = await storage.getContactByMobile(mobile);
+      
+      // Return the contact if found, or null if not found (not an error)
+      res.json(contact || null);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Get contact by ID
   app.get("/api/contacts/:id", isAuthenticated, async (req, res, next) => {
     try {
