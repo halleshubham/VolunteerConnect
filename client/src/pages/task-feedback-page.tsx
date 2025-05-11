@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, PieChart, BarChart4, Users, MapPin, X, Phone, Mail } from "lucide-react";
+import { Loader2, PieChart, BarChart4, Users, MapPin, X, Phone, Mail, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
@@ -85,6 +85,37 @@ type ContactWithResponse = {
 
 // Define Response Type for the modal
 type ResponseType = "Yes" | "No" | "Tentative" | null;
+
+// Add a utility function to export contacts to Excel
+const exportToExcel = (contacts: ContactWithResponse[], responseType: ResponseType, campaignName: string) => {
+  // Import Excel library dynamically to reduce bundle size
+  import('xlsx').then(XLSX => {
+    // Format data for Excel
+    const worksheet = XLSX.utils.json_to_sheet(
+      contacts.map(contact => ({
+        'Name': contact.name,
+        'Mobile': contact.mobile,
+        'Email': contact.email || '',
+        'City': contact.city || '',
+        'Response': contact.response,
+        'Feedback': contact.feedback || '',
+        'Task': contact.taskTitle,
+        'Assigned To': contact.assignedTo
+      }))
+    );
+
+    // Create workbook and add worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, `${responseType} Responses`);
+
+    // Generate filename with date
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `${responseType}_Responses_${campaignName !== 'all' ? campaignName + '_' : ''}${date}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(workbook, filename);
+  });
+};
 
 export default function TaskFeedbackPage() {
   const { toast } = useToast();
@@ -832,7 +863,7 @@ export default function TaskFeedbackPage() {
                       </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
-                        No campaign data available
+                      No campaign data available
                       </div>
                     )}
                   </CardContent>
@@ -876,6 +907,21 @@ export default function TaskFeedbackPage() {
             </div>
           ) : contactsByResponse.length > 0 ? (
             <div className="mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-sm text-gray-500">
+                  {contactsByResponse.length} contact{contactsByResponse.length !== 1 ? 's' : ''} found
+                </h3>
+                {/* Add Export Button */}
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => exportToExcel(contactsByResponse, selectedResponseType, selectedCampaign)}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export to Excel
+                </Button>
+              </div>
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
