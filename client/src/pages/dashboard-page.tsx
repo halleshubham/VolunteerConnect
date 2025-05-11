@@ -100,8 +100,8 @@ export default function DashboardPage() {
         <Header title="Dashboard" onOpenSidebar={() => setSidebarOpen(true)} />
         
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {/* Stats Section */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
+          {/* Stats Section - Doesn't seem to be useful*/}
+          {user?.role == 'admin' && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
             <Card>
               <CardContent className="pt-5">
                 <div className="flex items-center">
@@ -177,10 +177,64 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </div> }
+
+          {/* Display list of high priority contacts assigned to user */}
+          {<div className="mb-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>High Priority Contacts</CardTitle>
+                  <CardDescription>Contacts assigned to you with high priority</CardDescription>
+                </div>
+                <Link href="/contacts">
+                  <Button variant="outline">View All</Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                {contacts.filter(contact => contact.priority === 'high' && user?.username && contact.assignedTo?.includes(user.username)).length > 0 ? (
+                  contacts.filter(contact => contact.priority === 'high' && user?.username && contact.assignedTo?.includes(user.username))
+                    .slice(0, 6) // Limit to 6 contacts
+                    .map(contact => (
+                    <div key={contact.id} className="flex items-center mb-4">
+                      <div className="flex-shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                          {contact.name.slice(0, 2).toUpperCase()}
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-900">{contact.name}</p>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Phone className="h-3 w-3 mr-1" />
+                          {contact.mobile}
+                        </div>
+                      </div>
+                      <div className="ml-auto">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          contact.category === 'volunteer' ? 'bg-green-100 text-green-800' :
+                          contact.category === 'donor' ? 'bg-purple-100 text-purple-800' :
+                          contact.category === 'partner' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {contact.category}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No high priority contacts assigned to you.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>}
+
           
           {/* Tasks Section */}
-          <div className="mb-6">
+          { user?.role == 'admin' &&
+            <>
+            <div className="mb-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -213,144 +267,145 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
-          
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contacts by Category</CardTitle>
-                <CardDescription>Distribution of contacts across categories</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={categoryChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="var(--chart-1)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+            </div>
             
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Priority Distribution</CardTitle>
-                <CardDescription>Breakdown of contacts by priority level</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={[
-                        { name: 'High', value: contactsByPriority.high || 0 },
-                        { name: 'Medium', value: contactsByPriority.medium || 0 },
-                        { name: 'Low', value: contactsByPriority.low || 0 }
-                      ]}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="var(--chart-2)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* Recent Sections */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Recent Contacts</CardTitle>
-                  <CardDescription>Newly added contacts</CardDescription>
-                </div>
-                <Link href="/contacts">
-                  <Button variant="outline">View All</Button>
-                </Link>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentContacts.length > 0 ? (
-                    recentContacts.map((contact) => (
-                      <div key={contact.id} className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                            {contact.name.slice(0, 2).toUpperCase()}
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-900">{contact.name}</p>
-                          <div className="flex items-center text-xs text-gray-500">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {contact.mobile}
-                          </div>
-                        </div>
-                        <div className="ml-auto">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            contact.category === 'volunteer' ? 'bg-green-100 text-green-800' :
-                            contact.category === 'donor' ? 'bg-purple-100 text-purple-800' :
-                            contact.category === 'partner' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {contact.category}
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">No contacts added yet</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Contacts by Category</CardTitle>
+                  <CardDescription>Distribution of contacts across categories</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={categoryChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="var(--chart-1)" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Contact Priority Distribution</CardTitle>
+                  <CardDescription>Breakdown of contacts by priority level</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          { name: 'High', value: contactsByPriority.high || 0 },
+                          { name: 'Medium', value: contactsByPriority.medium || 0 },
+                          { name: 'Low', value: contactsByPriority.low || 0 }
+                        ]}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="var(--chart-2)" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
             
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Upcoming Events</CardTitle>
-                  <CardDescription>Your organization's scheduled events</CardDescription>
-                </div>
-                <Link href="/events">
-                  <Button variant="outline">View All</Button>
-                </Link>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentEvents.length > 0 ? (
-                    recentEvents.map((event) => (
-                      <div key={event.id} className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <div className="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-medium">
-                            <CalendarDays className="h-5 w-5" />
+            {/* Recent Sections */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Recent Contacts</CardTitle>
+                    <CardDescription>Newly added contacts</CardDescription>
+                  </div>
+                  <Link href="/contacts">
+                    <Button variant="outline">View All</Button>
+                  </Link>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentContacts.length > 0 ? (
+                      recentContacts.map((contact) => (
+                        <div key={contact.id} className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                              {contact.name.slice(0, 2).toUpperCase()}
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <p className="text-sm font-medium text-gray-900">{contact.name}</p>
+                            <div className="flex items-center text-xs text-gray-500">
+                              <Phone className="h-3 w-3 mr-1" />
+                              {contact.mobile}
+                            </div>
+                          </div>
+                          <div className="ml-auto">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              contact.category === 'volunteer' ? 'bg-green-100 text-green-800' :
+                              contact.category === 'donor' ? 'bg-purple-100 text-purple-800' :
+                              contact.category === 'partner' ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {contact.category}
+                            </span>
                           </div>
                         </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-900">{event.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(event.date).toLocaleDateString()} at {event.location}
-                          </p>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">No contacts added yet</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Upcoming Events</CardTitle>
+                    <CardDescription>Your organization's scheduled events</CardDescription>
+                  </div>
+                  <Link href="/events">
+                    <Button variant="outline">View All</Button>
+                  </Link>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentEvents.length > 0 ? (
+                      recentEvents.map((event) => (
+                        <div key={event.id} className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <div className="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-medium">
+                              <CalendarDays className="h-5 w-5" />
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <p className="text-sm font-medium text-gray-900">{event.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(event.date).toLocaleDateString()} at {event.location}
+                            </p>
+                          </div>
+                          <div className="ml-auto">
+                            <Users className="h-4 w-4 text-gray-400" />
+                          </div>
                         </div>
-                        <div className="ml-auto">
-                          <Users className="h-4 w-4 text-gray-400" />
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">No events scheduled</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">No events scheduled</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>}
 
           <TaskDetailModal
             isOpen={!!selectedTask}

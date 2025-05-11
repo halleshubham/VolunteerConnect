@@ -30,6 +30,9 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       
       <div className="space-y-3">
         <div className="flex items-center text-sm">
+            <span>Assigned To: {task.assignedTo}</span>
+        </div>
+        <div className="flex items-center text-sm">
           <CircleIcon className="mr-2 h-4 w-4 text-blue-500" />
           <span>Due {formatDistance(new Date(task.dueDate), new Date(), { addSuffix: true })}</span>
         </div>
