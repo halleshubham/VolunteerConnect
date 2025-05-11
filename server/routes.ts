@@ -1551,6 +1551,33 @@ app.get('/auth/:userId', async (req, res) => {
     }
   });
 
+  app.put("/api/settings/users/:username", isAuthenticated, async (req, res, next) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admin users can update users
+      if (currentUser.role !== 'admin') {
+        return res.status(403).json({ 
+          message: "Only admins can update users" 
+        });
+      }
+
+      const { role, mobile } = req.body;
+      
+      // Update user
+      const updatedUser = await storage.updateUser(req.params.username, { role, mobile });
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.delete("/api/settings/users/:username", isAuthenticated, async (req, res, next) => {
     try {
       const currentUser = req.user as User;

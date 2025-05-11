@@ -22,6 +22,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   deleteUser(username: string): Promise<boolean>;
   getUsers(): Promise<{id:number, username: string, role: string | null, mobile: string | null}[]>;
+  updateUser(username: string, updates: { role?: string; mobile?: string }): Promise<User | undefined>;
   
   // Contact operations
   getContacts(filters?: Partial<Contact>): Promise<Contact[]>;
@@ -145,6 +146,15 @@ export class DatabaseStorage implements IStorage {
       .orderBy(users.username);
     
     return userList;
+  }
+
+  async updateUser(username: string, updates: { role?: string; mobile?: string }): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.username, username))
+      .returning();
+    return updatedUser;
   }
 
   // Contact operations

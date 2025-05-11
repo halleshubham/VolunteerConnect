@@ -3,7 +3,7 @@ import Sidebar from '@/components/layout/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Search, Loader2 } from 'lucide-react';
+import { Plus, X, Search, Loader2, Edit } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
@@ -42,6 +42,10 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('');
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editRole, setEditRole] = useState('');
+  const [editMobile, setEditMobile] = useState('');
   const {toast} = useToast();
 
   const { data: activities = [], isLoading: isActivitiesLoading } = useQuery<PredefinedActivity[]>({
@@ -118,6 +122,35 @@ export default function SettingsPage() {
       toast({
         title: "User created",
         description: "The user has been created successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async (data: { username: string; updates: { role?: string; mobile?: string } }) => {
+      const response = await fetch(`/api/settings/users/${data.username}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data.updates)
+      });
+      if (!response.ok) throw new Error('Failed to update user');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/users'] });
+      setEditingUser(null);
+      setIsEditUserDialogOpen(false);
+      toast({
+        title: "User updated",
+        description: "The user has been updated successfully.",
       });
     },
     onError: (error: Error) => {
@@ -237,6 +270,26 @@ export default function SettingsPage() {
       username: newUsername,
       password: newPassword,
       role: newRole
+    });
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setEditRole(user.role || '');
+    setEditMobile(user.mobile || '');
+    setIsEditUserDialogOpen(true);
+  };
+
+  const handleUpdateUser = () => {
+    if (!editingUser) return;
+
+    const updates: { role?: string; mobile?: string } = {};
+    if (editRole) updates.role = editRole;
+    if (editMobile) updates.mobile = editMobile;
+
+    updateUserMutation.mutate({
+      username: editingUser.username,
+      updates
     });
   };
 
@@ -393,6 +446,52 @@ export default function SettingsPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              {/* Edit User Dialog */}
+              <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit User: {editingUser?.username}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="role" className="text-sm font-medium">Role</label>
+                      <Select value={editRole} onValueChange={setEditRole}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="viewonly">viewonly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="mobile" className="text-sm font-medium">Mobile Number</label>
+                      <Input 
+                        id="mobile"
+                        value={editMobile}
+                        onChange={(e) => setEditMobile(e.target.value)}
+                        placeholder="Mobile number"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsEditUserDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleUpdateUser}
+                        disabled={updateUserMutation.isPending}
+                      >
+                        {updateUserMutation.isPending && (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        )}
+                        Save Changes
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               <div className="border rounded-lg">
@@ -402,7 +501,7 @@ export default function SettingsPage() {
                       <TableHead>Username</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Mobile</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead className="w-[100px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -418,14 +517,23 @@ export default function SettingsPage() {
                         <TableCell>{user.role}</TableCell>
                         <TableCell>{user.mobile || '-'}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteUserMutation.mutate(user.username)}
-                            disabled={deleteUserMutation.isPending}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteUserMutation.mutate(user.username)}
+                              disabled={deleteUserMutation.isPending}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
