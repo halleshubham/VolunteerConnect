@@ -29,8 +29,8 @@ interface User {
 }
 
 export default function SettingsPage() {
-  const [categories, setCategories] = useState(['volunteer', 'donor', 'partner', 'attendee']);
-  const [priorities, setPriorities] = useState(['high', 'medium', 'low']);
+  const [categories, setCategories] = useState(['volunteer', 'activist', 'political-party', 'sympethiser']);
+  const [priorities, setPriorities] = useState(['high', 'medium', 'low', 'to-be-decided']);
   const [statuses, setStatuses] = useState(['active', 'inactive', 'follow-up']);
   const [newCategory, setNewCategory] = useState('');
   const [newPriority, setNewPriority] = useState('');

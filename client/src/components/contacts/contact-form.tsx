@@ -342,10 +342,10 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="volunteer">Volunteer</SelectItem>
-                        <SelectItem value="sympathiser">Sympathiser</SelectItem>
-                        <SelectItem value="attendee">Attendee</SelectItem>
-                        <SelectItem value="political">Political</SelectItem>
+                      <SelectItem value="volunteer">Volunteer</SelectItem>
+                      <SelectItem value="political-party">Political Party</SelectItem>
+                      <SelectItem value="activist">Activist</SelectItem>
+                      <SelectItem value="sympethiser">Sympethiser</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -468,7 +468,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
                     <FormLabel>State *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value.toLowerCase()}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a state" />
@@ -633,6 +633,7 @@ export default function ContactForm({ isOpen, onClose, onSubmit, contact }: Cont
                         <SelectItem value="high">High (P0/P1)</SelectItem>
                         <SelectItem value="medium">Medium (P2)</SelectItem>
                         <SelectItem value="low">Low (P3)</SelectItem>
+                        <SelectItem value="to-be-decided">To Be Decided</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

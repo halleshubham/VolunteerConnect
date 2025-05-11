@@ -166,6 +166,37 @@ const {
     },
   });
 
+  const getTeamString = (team: string) => {
+    switch (team) {
+      case "sja-maharashtra":
+        return "SJA Maharashtra";
+      case "lokayat-general":
+        return "Lokayat General";
+      case "abhivyakti":
+        return "Abhivyakti";
+      case "mahila-jagar-samiti":
+        return "Mahila Jagar Samiti";
+      case "congress-party":
+        return "Congress Party";
+      case "ncp-party":
+        return "NCP Party";
+      case "shivsena-party":
+        return "Shiv Sena Party";
+      case "other-organisations":
+        return "Other Organisations";
+      case "congress-jj-shakti":
+        return "Congress Jai Jawan / Shakti Abhiyan";
+      case "maharashtra-level":
+        return "Maharashtra Level";
+      case "sja-maharashtra":
+        return "SJA Maharashtra";
+      case "sja-teachers-front":
+        return "SJA Teachers Front";
+      default:
+        return team;
+    }
+  }
+
   // Handle contact update
   const handleContactUpdate = (data: Partial<Contact>) => {
     if (contactId) {
@@ -421,7 +452,7 @@ const {
                             <Users className="h-5 w-5 text-gray-500 mr-3 mt-0.5" />
                             <div>
                               <p className="text-sm text-gray-500">Team</p>
-                              <p className="font-medium">{contact.team}</p>
+                              <p className="font-medium">{getTeamString(contact.team)}</p>
                             </div>
                           </div>
                         )}

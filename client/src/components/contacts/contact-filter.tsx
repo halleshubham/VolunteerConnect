@@ -216,9 +216,9 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="volunteer">Volunteer</SelectItem>
-                <SelectItem value="donor">Donor</SelectItem>
-                <SelectItem value="partner">Partner</SelectItem>
-                <SelectItem value="attendee">Attendee</SelectItem>
+                <SelectItem value="political-party">Political Party</SelectItem>
+                <SelectItem value="activist">Activist</SelectItem>
+                <SelectItem value="sympethiser">Sympethiser</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -263,6 +263,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 <SelectItem value="high">High (P0/P1)</SelectItem>
                 <SelectItem value="medium">Medium (P2)</SelectItem>
                 <SelectItem value="low">Low (P3)</SelectItem>
+                <SelectItem value="to-be-decided">To Be Decided</SelectItem>
               </SelectContent>
             </Select>
           </div>
