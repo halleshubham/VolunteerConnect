@@ -178,6 +178,42 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div> }
+          
+          {/* Tasks Section */}
+          <div className="mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Pending Tasks</CardTitle>
+                <CardDescription>Tasks requiring your attention</CardDescription>
+              </div>
+              {/* <Link href="/tasks">
+                <Button variant="outline">View All</Button>
+              </Link> */}
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : pendingTasks.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No pending tasks.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {pendingTasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onClick={setSelectedTask}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          </div>
 
           {/* Display list of high priority contacts assigned to user */}
           {<div className="mb-6">
@@ -229,47 +265,10 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>}
-
-          
-          {/* Tasks Section */}
-          { user?.role == 'admin' &&
-            <>
-            <div className="mb-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Pending Tasks</CardTitle>
-                  <CardDescription>Tasks requiring your attention</CardDescription>
-                </div>
-                {/* <Link href="/tasks">
-                  <Button variant="outline">View All</Button>
-                </Link> */}
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex justify-center items-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : pendingTasks.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500">No pending tasks.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {pendingTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onClick={setSelectedTask}
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            </div>
             
             {/* Charts Section */}
+            { user?.role == 'admin' &&
+            <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <Card>
                 <CardHeader>
