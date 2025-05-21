@@ -618,7 +618,7 @@ app.get('/auth/:userId', async (req, res) => {
 
     // return res.status(200).json({ message: "Not implemented", req: req.body });
     try {
-      const { contactIds, field, value } = req.body;
+      const { contactIds, field, value, updateMode } = req.body;
 
       // Validate request body
       if (!Array.isArray(contactIds) || contactIds.length === 0) {
@@ -627,17 +627,73 @@ app.get('/auth/:userId', async (req, res) => {
       if (!field || typeof field !== "string") {
         return res.status(400).json({ message: "field must be a string" });
       }
+
       if (!value || typeof value !== "string") {
-        return res.status(400).json({ message: "value must be a string" });
+        // Check if value is an array for assignedTo field
+        if (field === "assignedTo" && Array.isArray(value)) {
+          // Check if all values in the array are strings
+          const allStrings = value.every(item => typeof item === "string");
+          if (!allStrings) {
+            return res.status(400).json({ message: "assignedTo must be an array of strings" });
+          }
+        } else {
+          // If not assignedTo, ensure value is a string
+          return res.status(400).json({ message: "value must be a string" });
+        }
       }
 
-      // Perform bulk update
-      const updatedCount = await storage.bulkUpdateContacts(contactIds, field, value);
+      // Handle special case for assignedTo field (it's an array in the database)
+      if (field === "assignedTo") {
+        // Check if users exist
+        const usernames = Array.isArray(value) ? value : [value];
+        const existingUsers = await storage.getUsers();
+        const existingUsernames = existingUsers.map(user => user.username);
+        
+        // Validate usernames
+        const invalidUsernames = usernames.filter(username => !existingUsernames.includes(username));
+        if (invalidUsernames.length > 0) {
+          return res.status(400).json({ 
+            message: `The following users don't exist: ${invalidUsernames.join(', ')}` 
+          });
+        }
 
-      res.json({ 
-        message: `Successfully updated ${updatedCount} contacts`,
-        updated: updatedCount
-      });
+        // Get the contacts to update
+        const contacts = await Promise.all(
+          contactIds.map(id => storage.getContactById(id))
+        );
+        
+        // Update each contact's assignedTo field
+        for (const contact of contacts) {
+          if (!contact) continue;
+          
+          let newAssignedTo: string[];
+          
+          if (updateMode === "add") {
+            // Add new users to existing ones without duplicates
+            const currentAssigned = contact.assignedTo || [];
+            newAssignedTo = [...new Set([...usernames, ...currentAssigned])];
+          } else {
+            // Replace existing users
+            newAssignedTo = usernames;
+          }
+          
+          await storage.updateContact(contact.id, { assignedTo: newAssignedTo });
+        }
+        
+        return res.json({ 
+          message: `Updated assignedTo field for ${contactIds.length} contacts` 
+        });
+      } else {
+        // Standard field update for other fields
+        for (const id of contactIds) {
+          await storage.updateContact(id, { [field]: value });
+        }
+        
+        return res.json({ 
+          message: `Updated ${field} for ${contactIds.length} contacts` 
+        });
+      }
+
     } catch (error) {
       next(error);
     }
@@ -664,6 +720,30 @@ app.get('/auth/:userId', async (req, res) => {
       next(error);
     }
   });
+
+  // Add bulk update route with new options
+  // app.put("/api/contacts/bulk", isAuthenticated, async (req, res) => {
+  //   try {
+  //     const { contactIds, field, value, updateMode } = req.body;
+      
+  //     if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
+  //       return res.status(400).json({ message: "Contact IDs are required" });
+  //     }
+      
+  //     if (!field) {
+  //       return res.status(400).json({ message: "Field to update is required" });
+  //     }
+      
+  //     if (value === undefined || value === null) {
+  //       return res.status(400).json({ message: "Update value is required" });
+  //     }
+
+      
+  //   } catch (error) {
+  //     console.error("Bulk update error:", error);
+  //     res.status(500).json({ message: "Failed to update contacts" });
+  //   }
+  // });
 
   // === EVENTS ROUTES ===
   // Get sample Excel template
@@ -1169,6 +1249,13 @@ app.get('/auth/:userId', async (req, res) => {
               contactId: existingContact.id
             });
             result.updated += 1;
+
+            // always update assignedTo values //
+            const contactData = existingContact;
+            contactData.assignedTo = [row.getCell(14).text?.trim().toLowerCase(), row.getCell(15).text?.trim().toLowerCase()],
+
+            await storage.updateContact(contactData.id, contactData)
+
             return; // Skip further processing for this contact
           }
           

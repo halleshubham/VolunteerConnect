@@ -303,6 +303,7 @@ export default function EventImportModal({ isOpen, onClose, events }: EventImpor
                     <p className="text-sm text-muted-foreground">
                       If enabled, existing contacts will be updated with new data from the import file.
                       Otherwise, only new contacts will be created and existing ones will remain unchanged.
+                      <br/><strong>(Note: Assigned To 1 & Assigned To 2 will always be updated, even if not ticked.)</strong>
                     </p>
                   </div>
                 </FormItem>

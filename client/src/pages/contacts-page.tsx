@@ -146,8 +146,8 @@ export default function ContactsPage() {
 
   // Bulk update mutation
   const bulkUpdateMutation = useMutation({
-    mutationFn: async ({ contactIds, field, value }: { contactIds: number[], field: string, value: string }) => {
-      await apiRequest("PUT", `/api/contacts-bulk/update`, { contactIds, field, value });
+    mutationFn: async ({ contactIds, field, value, updateMode }: { contactIds: number[], field: string, value: string | string[], updateMode ?: string }) => {
+      await apiRequest("PUT", `/api/contacts-bulk/update`, { contactIds, field, value, updateMode });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts-bulk"] });
@@ -470,11 +470,12 @@ export default function ContactsPage() {
         isOpen={isBulkUpdateOpen}
         onClose={() => setIsBulkUpdateOpen(false)}
         selectedContacts={selectedContacts}
-        onUpdate={async (field, value) => {
+        onUpdate={async (field, value, updateMode) => {
           await bulkUpdateMutation.mutateAsync({
             contactIds: selectedContacts.map(c => c.id),
             field,
-            value
+            value,
+            updateMode
           });
           setIsBulkUpdateOpen(false);
         }}
