@@ -43,7 +43,10 @@ export default function DashboardPage() {
   });
 
   // Filter tasks before rendering them
-  const pendingTasks = tasks.filter(task => !task.isCompleted);
+  // for all type of users show only assigned tasks
+  const pendingTasks = user 
+    ? tasks.filter(task => !task.isCompleted).filter(task => task.assignedTo?.includes(user.username)) 
+    : [];
 
   // Update task feedback mutation
   const updateFeedbackMutation = useMutation({
@@ -100,84 +103,6 @@ export default function DashboardPage() {
         <Header title="Dashboard" onOpenSidebar={() => setSidebarOpen(true)} />
         
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {/* Stats Section - Doesn't seem to be useful*/}
-          {user?.role == 'admin' && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center">
-                  <div className="rounded-full p-3 bg-blue-100">
-                    <UsersRound className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total Contacts</p>
-                    <p className="text-2xl font-semibold text-gray-900">{contacts.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center">
-                  <div className="rounded-full p-3 bg-purple-100">
-                    <CalendarDays className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total Events</p>
-                    <p className="text-2xl font-semibold text-gray-900">{events.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center">
-                  <div className="rounded-full p-3 bg-green-100">
-                    <Award className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Active Volunteers</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {contacts.filter(c => c.category === 'volunteer' && c.status === 'active').length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center">
-                  <div className="rounded-full p-3 bg-yellow-100">
-                    <Activity className="h-6 w-6 text-yellow-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Follow-up Required</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {contacts.filter(c => c.status === 'follow-up').length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="pt-5">
-                <div className="flex items-center">
-                  <div className="rounded-full p-3 bg-indigo-100">
-                    <CheckCircle2 className="h-6 w-6 text-indigo-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Pending Tasks</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {tasks.filter(t => !t.isCompleted).length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div> }
           
           {/* Tasks Section */}
           <div className="mb-6">
@@ -265,6 +190,84 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>}
+          {/* Stats Section - Doesn't seem to be useful*/}
+          {user?.role == 'admin' && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
+            <Card>
+              <CardContent className="pt-5">
+                <div className="flex items-center">
+                  <div className="rounded-full p-3 bg-blue-100">
+                    <UsersRound className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Total Contacts</p>
+                    <p className="text-2xl font-semibold text-gray-900">{contacts.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-5">
+                <div className="flex items-center">
+                  <div className="rounded-full p-3 bg-purple-100">
+                    <CalendarDays className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Total Events</p>
+                    <p className="text-2xl font-semibold text-gray-900">{events.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-5">
+                <div className="flex items-center">
+                  <div className="rounded-full p-3 bg-green-100">
+                    <Award className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Active Volunteers</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {contacts.filter(c => c.category === 'volunteer' && c.status === 'active').length}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-5">
+                <div className="flex items-center">
+                  <div className="rounded-full p-3 bg-yellow-100">
+                    <Activity className="h-6 w-6 text-yellow-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Follow-up Required</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {contacts.filter(c => c.status === 'follow-up').length}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-5">
+                <div className="flex items-center">
+                  <div className="rounded-full p-3 bg-indigo-100">
+                    <CheckCircle2 className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Pending Tasks</p>
+                    <p className="text-2xl font-semibold text-gray-900">
+                      {tasks.filter(t => !t.isCompleted).length}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div> }
             
             {/* Charts Section */}
             { user?.role == 'admin' &&

@@ -22,7 +22,7 @@ export default function Sidebar() {
     <>
       {/* Mobile menu button */}
       <Button
-        style={{ "visibility": isOpen ? "hidden" : "visible" }}
+        style={{ "visibility": isOpen ? "hidden" : "visible", "background": "white", "border": "1px solid"}}
         variant="ghost"
         size="icon"
         className="md:hidden fixed top-4 left-4 z-50"

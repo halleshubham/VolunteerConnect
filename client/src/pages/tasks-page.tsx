@@ -328,75 +328,83 @@ export default function TasksPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white border-b">
-          <div className="p-4 flex items-center justify-between gap-4">
-            <div className="flex-1 flex items-center gap-4">
-              <Select 
-                value={viewMode} 
-                onValueChange={(value: 'tasks' | 'campaigns') => setViewMode(value)}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select view" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tasks">Tasks View</SelectItem>
-                  <SelectItem value="campaigns">Campaigns View</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Search tasks..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
+          <div className="p-4">
+            {/* Filters Section - Made scrollable */}
+            <div className="overflow-x-auto pb-2 -mb-2"> {/* Added horizontal scroll */}
+              <div className="flex items-center gap-4 min-w-max"> {/* Force minimum width */}
+                <Select 
+                  value={viewMode} 
+                  onValueChange={(value: 'tasks' | 'campaigns') => setViewMode(value)}
+                >
+                  <SelectTrigger className="w-[140px] sm:w-[180px]"> {/* Adjusted width */}
+                    <SelectValue placeholder="Select view" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tasks">Tasks View</SelectItem>
+                    <SelectItem value="campaigns">Campaigns View</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="w-[140px] sm:w-[200px]"> {/* Fixed width for search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input
+                      placeholder="Search tasks..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                <Select 
+                  value={filters.status} 
+                  onValueChange={(value) => setFilters(f => ({ ...f, status: value }))}
+                >
+                  <SelectTrigger className="w-[140px] sm:w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select 
+                  value={filters.assignedTo} 
+                  onValueChange={(value) => setFilters(f => ({ ...f, assignedTo: value }))}
+                >
+                  <SelectTrigger className="w-[140px] sm:w-[180px]">
+                    <SelectValue placeholder="Filter by assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map(user => (
+                      <SelectItem key={user.username} value={user.username}>
+                        {user.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Actions button moved into the scrollable area */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button>
+                      Actions <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setIsCreateModalOpen(true)}>
+                      Create Task
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsCampaignModalOpen(true)}>
+                      Create Campaign
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <Select 
-                value={filters.status} 
-                onValueChange={(value) => setFilters(f => ({ ...f, status: value }))}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select 
-                value={filters.assignedTo} 
-                onValueChange={(value) => setFilters(f => ({ ...f, assignedTo: value }))}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  {users.map(user => (
-                    <SelectItem key={user.username} value={user.username}>
-                      {user.username}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button>
-                    Actions <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setIsCreateModalOpen(true)}>
-                    Create Task
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setIsCampaignModalOpen(true)}>
-                    Create Campaign
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
         </div>
