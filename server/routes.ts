@@ -433,7 +433,7 @@ app.get('/auth/:userId', async (req, res) => {
   app.post('/send-message/:userId', async (req, res) => {
     try {
       const { userId } = req.params;
-      const { numbers, message, useSSE } = req.body;
+      const { numbers, message, useSSE, imageUrl } = req.body;
 
       // Validation
       if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
@@ -478,6 +478,44 @@ app.get('/auth/:userId', async (req, res) => {
 
       console.log(`📤 Starting message job ${jobId}: ${uniqueNumbers.length} unique numbers (${numbers.length} original)`);
 
+      // Download image to temp if URL provided
+      let tempImagePath: string | null = null;
+      let imageMedia: any = null;
+      let hasImage = false;
+
+      if (imageUrl) {
+        try {
+          console.log(`⬇️ Downloading image for job ${jobId}: ${imageUrl}`);
+          const axios = require('axios');
+          const imageResponse = await axios.get(imageUrl, {
+            responseType: 'arraybuffer',
+            timeout: 10000, // 10 second timeout
+            maxContentLength: 16 * 1024 * 1024 // 16MB max (WhatsApp limit)
+          });
+
+          const imageBuffer = Buffer.from(imageResponse.data, 'binary');
+          const imageExtension = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+          tempImagePath = path.join('/tmp', `whatsapp_${jobId}.${imageExtension}`);
+
+          await fs.writeFile(tempImagePath, imageBuffer);
+
+          // Prepare media message
+          const MessageMedia = whatsapp.MessageMedia;
+          imageMedia = new MessageMedia(
+            imageResponse.headers['content-type'] || `image/${imageExtension}`,
+            imageBuffer.toString('base64'),
+            `image.${imageExtension}`
+          );
+
+          hasImage = true;
+          console.log(`✅ Image prepared for job ${jobId} (${(imageBuffer.length / 1024).toFixed(1)}KB)`);
+        } catch (err: any) {
+          console.error(`❌ Failed to download image for job ${jobId}:`, err.message);
+          // Continue without image
+          hasImage = false;
+        }
+      }
+
 
 
       // If SSE is requested, set up Server-Sent Events
@@ -501,7 +539,12 @@ app.get('/auth/:userId', async (req, res) => {
           const chatId = `${num}@c.us`;
 
           try {
-            await client.sendMessage(chatId, message);
+            // Send message with or without image
+            if (hasImage && imageMedia) {
+              await client.sendMessage(chatId, imageMedia, { caption: message });
+            } else {
+              await client.sendMessage(chatId, message);
+            }
             messageJobs[jobId].sent++;
             messageJobs[jobId].results.push({ number: num, status: 'Sent' });
 
@@ -561,6 +604,16 @@ app.get('/auth/:userId', async (req, res) => {
 
         res.end();
 
+        // Clean up temp image immediately
+        if (tempImagePath) {
+          try {
+            await fs.unlink(tempImagePath);
+            console.log(`🗑️ Cleaned up temp image for job ${jobId}`);
+          } catch (err) {
+            console.error(`⚠️ Failed to delete temp image ${tempImagePath}:`, err);
+          }
+        }
+
         // Clean up job after 5 minutes
         setTimeout(() => {
           delete messageJobs[jobId];
@@ -583,7 +636,12 @@ app.get('/auth/:userId', async (req, res) => {
             const chatId = `${num}@c.us`;
 
             try {
-              await client.sendMessage(chatId, message);
+              // Send message with or without image
+              if (hasImage && imageMedia) {
+                await client.sendMessage(chatId, imageMedia, { caption: message });
+              } else {
+                await client.sendMessage(chatId, message);
+              }
               messageJobs[jobId].sent++;
               messageJobs[jobId].results.push({ number: num, status: 'Sent' });
             } catch (err: any) {
@@ -605,6 +663,16 @@ app.get('/auth/:userId', async (req, res) => {
 
           messageJobs[jobId].status = 'completed';
           messageJobs[jobId].completedAt = new Date();
+
+          // Clean up temp image immediately
+          if (tempImagePath) {
+            try {
+              await fs.unlink(tempImagePath);
+              console.log(`🗑️ Cleaned up temp image for job ${jobId}`);
+            } catch (err) {
+              console.error(`⚠️ Failed to delete temp image ${tempImagePath}:`, err);
+            }
+          }
 
           // Clean up job after 10 minutes
           setTimeout(() => {

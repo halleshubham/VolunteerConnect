@@ -26,6 +26,8 @@ interface MessageProgress {
 export default function WhatsAppSender({numbers}:{numbers: string[]}) {
   const [numberss, setNumberss] = useState(numbers);
   const [message, setMessage] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [response, setResponse] = useState(null);
   const [progress, setProgress] = useState<MessageProgress>({
     current: 0,
@@ -70,6 +72,21 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
     setNumberss(updatedNumbers);
   }
 
+  const handleImageUrlChange = (value: string) => {
+    setImageUrl(value);
+    // Set preview if it's a valid URL
+    if (value && (value.startsWith('http://') || value.startsWith('https://'))) {
+      setImagePreview(value);
+    } else {
+      setImagePreview(null);
+    }
+  }
+
+  const clearImage = () => {
+    setImageUrl('');
+    setImagePreview(null);
+  }
+
   const handleSend = () => {
     if (!user?.username) return;
 
@@ -96,6 +113,7 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
       body: JSON.stringify({
         numbers: numberss,
         message,
+        imageUrl: imageUrl || undefined, // Include image URL if provided
         useSSE: true // Enable SSE mode
       })
     }).then(response => {
@@ -169,35 +187,115 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
     <div className="p-5">
       <h2 className="text-xl font-bold">📲 WhatsApp Message Sender</h2>
       {statusData?.isReady ? (
-        <div className="p-5 max-w-2xl mx-auto">
+        <div className="p-5 max-w-3xl mx-auto">
         <h1 className="text-xl font-bold mb-4">Connection Success</h1>
-        <textarea
-          placeholder="Enter comma-separated numbers e.g., 9876543210,9123456789"
-          className="border p-2 w-full mb-4 rounded"
-          value={numberss}
-          onChange={(e) => handleSetNumbers(e.target.value)}
-          disabled={progress.status === 'sending'}
-        />
-        <textarea
-          placeholder="Enter your message"
-          className="border p-2 w-full mb-4 rounded"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          disabled={progress.status === 'sending'}
-        />
+
+        {/* Numbers Input */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2">Phone Numbers</label>
+          <textarea
+            placeholder="Enter comma-separated numbers e.g., 9876543210,9123456789"
+            className="border p-2 w-full rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            rows={3}
+            value={numberss}
+            onChange={(e) => handleSetNumbers(e.target.value)}
+            disabled={progress.status === 'sending'}
+          />
+        </div>
+
+        {/* Message Input */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2">Message</label>
+          <textarea
+            placeholder="Enter your message"
+            className="border p-2 w-full rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            rows={4}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            disabled={progress.status === 'sending'}
+          />
+        </div>
+
+        {/* Image URL Input */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2">
+            Image (Optional)
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+              className="border p-2 flex-1 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              value={imageUrl}
+              onChange={(e) => handleImageUrlChange(e.target.value)}
+              disabled={progress.status === 'sending'}
+            />
+            {imageUrl && (
+              <button
+                onClick={clearImage}
+                className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-400"
+                disabled={progress.status === 'sending'}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Supported formats: JPG, PNG, GIF, WebP (Max 16MB)
+          </p>
+        </div>
+
+        {/* Image Preview */}
+        {imagePreview && (
+          <div className="mb-4 p-4 bg-gray-50 rounded border">
+            <p className="text-sm font-semibold mb-2">Image Preview:</p>
+            <div className="flex justify-center">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="max-h-48 rounded border"
+                onError={() => {
+                  setImagePreview(null);
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Send Button */}
         <button
           onClick={handleSend}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className="w-full bg-green-500 text-white px-4 py-3 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold"
           disabled={progress.status === 'sending' || !numberss.length || !message}
         >
-          {progress.status === 'sending' ? 'Sending...' : 'Send Messages'}
+          {progress.status === 'sending'
+            ? `Sending... (${progress.current}/${progress.total})`
+            : imageUrl
+              ? '📎 Send Messages with Image'
+              : '📤 Send Messages'}
         </button>
+
+        {/* Info Banner when Image is Selected */}
+        {imageUrl && progress.status === 'idle' && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+            <p className="text-sm text-blue-800">
+              📎 <strong>Image attached!</strong> Messages will include your image with the text as caption.
+              {numberss.length > 10 && (
+                <span className="block mt-1">
+                  ⏱️ Note: Sending with images takes ~20-30% longer than text-only.
+                </span>
+              )}
+            </p>
+          </div>
+        )}
 
         {/* Progress Bar */}
         {progress.status === 'sending' && (
           <div className="mt-6">
             <div className="mb-2 flex justify-between text-sm">
-              <span className="font-semibold">Sending Progress</span>
+              <span className="font-semibold">
+                {imageUrl ? '📎 Sending with Image' : '📤 Sending Messages'}
+              </span>
               <span>{progress.current} / {progress.total}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
@@ -210,6 +308,11 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
               <span>✅ Sent: {progress.sent}</span>
               <span>❌ Failed: {progress.failed}</span>
             </div>
+            {imageUrl && progress.current === 0 && (
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                ⬇️ Downloading image...
+              </p>
+            )}
           </div>
         )}
 
@@ -219,7 +322,8 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
             <h2 className="font-semibold text-lg mb-3">Results Summary</h2>
             <div className="bg-green-50 border border-green-200 p-4 rounded mb-4">
               <p className="text-green-800">
-                ✅ Successfully sent: <strong>{progress.sent}</strong> / {progress.total}
+                {imageUrl ? '📎' : '📤'} Successfully sent: <strong>{progress.sent}</strong> / {progress.total}
+                {imageUrl && <span className="text-sm ml-2">(with image)</span>}
               </p>
               {progress.failed > 0 && (
                 <p className="text-red-800 mt-1">
