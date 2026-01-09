@@ -170,7 +170,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                 </div>
                 <Select
                   onValueChange={(value) => {
-                    if (value) {
+                    if (value && value !== "placeholder") {
                       handleAddUser(value);
                     }
                   }}
@@ -186,14 +186,15 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
                       }
                     }
                   }}
-                  value="All"
+                  value="placeholder"
                 >
                   <SelectTrigger id="assignedTo-trigger" className="w-full">
                     <SelectValue placeholder="Select user..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {users
-                      .filter((u) => !selectedUsers.includes(u.username))
+                    <SelectItem value="placeholder" disabled>Select user...</SelectItem>
+                    {Array.isArray(users) && users
+                      .filter((u) => u && u.username && !selectedUsers.includes(u.username))
                       .map((user) => (
                         <SelectItem key={user.id} value={user.username}>
                           {user.username}
@@ -252,7 +253,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
           <div>
             <Label htmlFor="priority">Priority</Label>
             <Select
-              value={filters.priority}
+              value={filters.priority || 'all'}
               onValueChange={(value) => handleSelectChange("priority", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
@@ -271,14 +272,15 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
           <div>
             <Label htmlFor="location">Location</Label>
             <Select
-              value={filters.location}
+              value={filters.location || 'all'}
               onValueChange={(value) => handleSelectChange("location", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All Locations" />
               </SelectTrigger>
               <SelectContent>
-                {cities.map((city) => (
+                <SelectItem value="all">All Locations</SelectItem>
+                {cities.filter((city) => city && city.trim()).map((city) => (
                   <SelectItem key={city} value={city}>
                     {city}
                   </SelectItem>
@@ -290,7 +292,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
           <div>
             <Label htmlFor="occupation">Occupation</Label>
             <Select
-              value={filters.occupation}
+              value={filters.occupation || 'all'}
               onValueChange={(value) => handleSelectChange("occupation", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
@@ -318,7 +320,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
           <div>
             <Label htmlFor="eventId">Event</Label>
             <Select
-              value={filters.eventId}
+              value={filters.eventId || 'all'}
               onValueChange={(value) => handleSelectChange("eventId", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
@@ -338,7 +340,7 @@ export default function ContactFilter({ onFilterChange }: ContactFilterProps) {
           <div>
             <Label htmlFor="status">Status</Label>
             <Select
-              value={filters.status}
+              value={filters.status || 'all'}
               onValueChange={(value) => handleSelectChange("status", value === 'all' ? '' : value)}
             >
               <SelectTrigger>
