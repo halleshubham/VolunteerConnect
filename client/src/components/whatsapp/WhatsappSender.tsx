@@ -26,7 +26,7 @@ interface MessageProgress {
 export default function WhatsAppSender({numbers}:{numbers: string[]}) {
   const [numberss, setNumberss] = useState(numbers);
   const [message, setMessage] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [response, setResponse] = useState(null);
   const [progress, setProgress] = useState<MessageProgress>({
@@ -38,6 +38,7 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
     results: []
   });
   const eventSourceRef = useRef<EventSource | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const {user} = useAuth();
 
   const queryClient = useQueryClient();
@@ -72,19 +73,25 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
     setNumberss(updatedNumbers);
   }
 
-  const handleImageUrlChange = (value: string) => {
-    setImageUrl(value);
-    // Set preview if it's a valid URL
-    if (value && (value.startsWith('http://') || value.startsWith('https://'))) {
-      setImagePreview(value);
-    } else {
-      setImagePreview(null);
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   }
 
   const clearImage = () => {
-    setImageUrl('');
+    setImageFile(null);
     setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   }
 
   const handleSend = () => {
@@ -101,21 +108,19 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
     });
     setResponse(null);
 
-    // Use SSE for real-time progress (no need to send useSSE flag, we'll construct URL differently)
-    const eventSource = new EventSource(`/api/dummy`); // We'll use fetch with SSE instead
+    // Use SSE for real-time progress
+    // Use FormData to upload file
+    const formData = new FormData();
+    formData.append('numbers', JSON.stringify(numberss));
+    formData.append('message', message);
+    formData.append('useSSE', 'true');
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
 
-    // Better approach: Use fetch with streaming
     fetch(`/send-message/${user.username}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        numbers: numberss,
-        message,
-        imageUrl: imageUrl || undefined, // Include image URL if provided
-        useSSE: true // Enable SSE mode
-      })
+      body: formData // No Content-Type header - browser sets it automatically with boundary
     }).then(response => {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -216,21 +221,21 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
           />
         </div>
 
-        {/* Image URL Input */}
+        {/* Image File Input */}
         <div className="mb-4">
           <label className="block text-sm font-semibold mb-2">
             Image (Optional)
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <input
-              type="text"
-              placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
-              className="border p-2 flex-1 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              value={imageUrl}
-              onChange={(e) => handleImageUrlChange(e.target.value)}
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="border p-2 flex-1 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-green-500 file:text-white hover:file:bg-green-600 file:cursor-pointer"
+              onChange={handleImageSelect}
               disabled={progress.status === 'sending'}
             />
-            {imageUrl && (
+            {imageFile && (
               <button
                 onClick={clearImage}
                 className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-400"
@@ -241,7 +246,8 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
             )}
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Supported formats: JPG, PNG, GIF, WebP (Max 16MB)
+            Supported: JPG, PNG, GIF, WebP (Max 16MB)
+            {imageFile && <span className="ml-2 font-semibold">• Selected: {imageFile.name} ({(imageFile.size / 1024).toFixed(1)}KB)</span>}
           </p>
         </div>
 
@@ -270,13 +276,13 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
         >
           {progress.status === 'sending'
             ? `Sending... (${progress.current}/${progress.total})`
-            : imageUrl
+            : imageFile
               ? '📎 Send Messages with Image'
               : '📤 Send Messages'}
         </button>
 
         {/* Info Banner when Image is Selected */}
-        {imageUrl && progress.status === 'idle' && (
+        {imageFile && progress.status === 'idle' && (
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
             <p className="text-sm text-blue-800">
               📎 <strong>Image attached!</strong> Messages will include your image with the text as caption.
@@ -294,7 +300,7 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
           <div className="mt-6">
             <div className="mb-2 flex justify-between text-sm">
               <span className="font-semibold">
-                {imageUrl ? '📎 Sending with Image' : '📤 Sending Messages'}
+                {imageFile ? '📎 Sending with Image' : '📤 Sending Messages'}
               </span>
               <span>{progress.current} / {progress.total}</span>
             </div>
@@ -308,9 +314,9 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
               <span>✅ Sent: {progress.sent}</span>
               <span>❌ Failed: {progress.failed}</span>
             </div>
-            {imageUrl && progress.current === 0 && (
+            {imageFile && progress.current === 0 && (
               <p className="text-xs text-gray-500 mt-2 text-center">
-                ⬇️ Downloading image...
+                📤 Preparing image...
               </p>
             )}
           </div>
@@ -322,8 +328,8 @@ export default function WhatsAppSender({numbers}:{numbers: string[]}) {
             <h2 className="font-semibold text-lg mb-3">Results Summary</h2>
             <div className="bg-green-50 border border-green-200 p-4 rounded mb-4">
               <p className="text-green-800">
-                {imageUrl ? '📎' : '📤'} Successfully sent: <strong>{progress.sent}</strong> / {progress.total}
-                {imageUrl && <span className="text-sm ml-2">(with image)</span>}
+                {imageFile ? '📎' : '📤'} Successfully sent: <strong>{progress.sent}</strong> / {progress.total}
+                {imageFile && <span className="text-sm ml-2">(with image)</span>}
               </p>
               {progress.failed > 0 && (
                 <p className="text-red-800 mt-1">

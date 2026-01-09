@@ -205,6 +205,22 @@ interface MessageJob {
 
 const messageJobs: Record<string, MessageJob> = {};
 
+// Configure multer for image uploads (WhatsApp)
+const uploadImage = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 16 * 1024 * 1024, // 16MB max (WhatsApp limit)
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPG, PNG, GIF, WebP) are allowed'));
+    }
+  }
+});
+
 // Add this function after CampaignData interface
 function distributeContactsEvenly(contacts: Array<{
   Name: string;
@@ -430,10 +446,16 @@ app.get('/auth/:userId', async (req, res) => {
   });
 
   // ✅ API to send message batch with progress tracking (SSE)
-  app.post('/send-message/:userId', async (req, res) => {
+  app.post('/send-message/:userId', uploadImage.single('image'), async (req, res) => {
     try {
       const { userId } = req.params;
-      const { numbers, message, useSSE, imageUrl } = req.body;
+      const numbersStr = req.body.numbers;
+      const message = req.body.message;
+      const useSSE = req.body.useSSE === 'true' || req.body.useSSE === true;
+      const imageFile = req.file;
+
+      // Parse numbers if it's a string
+      const numbers = typeof numbersStr === 'string' ? JSON.parse(numbersStr) : numbersStr;
 
       // Validation
       if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
@@ -478,39 +500,34 @@ app.get('/auth/:userId', async (req, res) => {
 
       console.log(`📤 Starting message job ${jobId}: ${uniqueNumbers.length} unique numbers (${numbers.length} original)`);
 
-      // Download image to temp if URL provided
+      // Process uploaded image file if provided
       let tempImagePath: string | null = null;
       let imageMedia: any = null;
       let hasImage = false;
 
-      if (imageUrl) {
+      if (imageFile) {
         try {
-          console.log(`⬇️ Downloading image for job ${jobId}: ${imageUrl}`);
-          const axios = require('axios');
-          const imageResponse = await axios.get(imageUrl, {
-            responseType: 'arraybuffer',
-            timeout: 10000, // 10 second timeout
-            maxContentLength: 16 * 1024 * 1024 // 16MB max (WhatsApp limit)
-          });
+          console.log(`📎 Processing uploaded image for job ${jobId}: ${imageFile.originalname} (${(imageFile.size / 1024).toFixed(1)}KB)`);
 
-          const imageBuffer = Buffer.from(imageResponse.data, 'binary');
-          const imageExtension = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+          const imageBuffer = imageFile.buffer;
+          const imageExtension = imageFile.originalname.split('.').pop() || 'jpg';
           tempImagePath = path.join('/tmp', `whatsapp_${jobId}.${imageExtension}`);
 
+          // Save to temp file (optional, for debugging)
           await fs.writeFile(tempImagePath, imageBuffer);
 
           // Prepare media message
           const MessageMedia = whatsapp.MessageMedia;
           imageMedia = new MessageMedia(
-            imageResponse.headers['content-type'] || `image/${imageExtension}`,
+            imageFile.mimetype,
             imageBuffer.toString('base64'),
-            `image.${imageExtension}`
+            imageFile.originalname
           );
 
           hasImage = true;
           console.log(`✅ Image prepared for job ${jobId} (${(imageBuffer.length / 1024).toFixed(1)}KB)`);
         } catch (err: any) {
-          console.error(`❌ Failed to download image for job ${jobId}:`, err.message);
+          console.error(`❌ Failed to process image for job ${jobId}:`, err.message);
           // Continue without image
           hasImage = false;
         }
