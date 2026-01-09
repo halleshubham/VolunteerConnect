@@ -75,16 +75,90 @@ const upload = multer({
 let latestQR = null;
 let isReady = false;
 const clients = {};  // Store WhatsApp client per user
+const userStates = {}; // Store QR codes and states - declared here for global access
 
 // Create and return client for specific user
-function getClient(userId:any) {
-  if (clients[userId]) return clients[userId];
+async function getClient(userId:any) {
+  if (clients[userId]) {
+    console.log(`♻️ Reusing existing client for user ${userId}`);
+    return clients[userId];
+  }
+
+  console.log(`🔄 Creating new WhatsApp client for user ${userId}`);
+
+  // Try to find system Chrome/Chromium
+  const chromePaths = [
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium',
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  ];
+
+  let executablePath = undefined;
+  for (const chromePath of chromePaths) {
+    try {
+      await fs.access(chromePath);
+      executablePath = chromePath;
+      console.log(`✓ Found Chrome at: ${chromePath}`);
+      break;
+    } catch {
+      // Path doesn't exist, try next
+    }
+  }
+
   const client = new Client({
     authStrategy: new LocalAuth({ dataPath: `./sessions/user_${userId}` }),
-    puppeteer: { headless: true }
+    puppeteer: {
+      headless: true,
+      executablePath: executablePath, // Use system Chrome if found
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
+      ]
+    }
   });
-  
-  client.initialize();
+
+  // Global event handlers that cache state
+  client.on('qr', (qr) => {
+    console.log(`📱 QR code generated for user ${userId}`);
+    userStates[userId] = { qr, lastUpdated: Date.now() };
+  });
+
+  client.on('ready', () => {
+    console.log(`✅ WhatsApp client ready for user ${userId}`);
+    delete userStates[userId]; // Clear QR cache when authenticated
+  });
+
+  client.on('auth_failure', (msg) => {
+    console.error(`❌ Auth failure for user ${userId}:`, msg);
+    delete userStates[userId];
+  });
+
+  client.on('disconnected', (reason) => {
+    console.log(`⚠️ Client disconnected for user ${userId}:`, reason);
+    delete clients[userId];
+    delete userStates[userId];
+  });
+
+  client.on('loading_screen', (percent, message) => {
+    console.log(`⏳ Loading for user ${userId}: ${percent}% - ${message}`);
+  });
+
+  client.initialize().catch((err) => {
+    console.error(`❌ Failed to initialize WhatsApp client for user ${userId}:`, err);
+    delete clients[userId];
+    delete userStates[userId];
+  });
+
   clients[userId] = client;
   return client;
 }
@@ -202,53 +276,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 // API to get QR or check connection
 app.get('/auth/:userId', async (req, res) => {
-  const { userId } = req.params;
-  const client = getClient(userId);
+  try {
+    const { userId } = req.params;
+    console.log(`📥 QR request received for user: ${userId}`);
 
-  if (client.info?.wid) return res.json({ status: 'authenticated' });
+    // Check if client already exists and is authenticated
+    if (clients[userId] && clients[userId].info?.wid) {
+      console.log(`✅ User ${userId} already authenticated`);
+      return res.json({ status: 'authenticated' });
+    }
 
-  client.once('qr', (qr) => {
-    res.json({ status: 'qr', qr });
-  });
+    // If we already have a QR code stored for this user, return it
+    if (userStates[userId]?.qr && !clients[userId]?.info?.wid) {
+      console.log(`📱 Returning cached QR for user ${userId}`);
+      return res.json({ status: 'qr', qr: userStates[userId].qr });
+    }
 
-  client.once('ready', () => {
-    console.log(`✅ User ${userId} WhatsApp Ready`);
-  });
+    // Create or get client
+    const client = await getClient(userId);
+
+    // Check again after getting client
+    if (client.info?.wid) {
+      console.log(`✅ User ${userId} authenticated after client creation`);
+      return res.json({ status: 'authenticated' });
+    }
+
+    // Set a timeout to prevent indefinite waiting
+    const timeout = setTimeout(() => {
+      if (!res.headersSent) {
+        console.error(`⏱️ Timeout waiting for QR code for user ${userId}`);
+        res.status(408).json({
+          status: 'error',
+          message: 'Timeout waiting for WhatsApp initialization. Please check server logs.'
+        });
+      }
+    }, 30000); // 30 second timeout
+
+    // Attach listeners
+    const qrHandler = (qr) => {
+      console.log(`📱 QR event fired for user ${userId}`);
+      userStates[userId] = { qr, lastUpdated: Date.now() };
+      clearTimeout(timeout);
+      if (!res.headersSent) {
+        res.json({ status: 'qr', qr });
+      }
+    };
+
+    const readyHandler = () => {
+      clearTimeout(timeout);
+      console.log(`✅ Ready event fired for user ${userId}`);
+      delete userStates[userId]; // Clear QR cache when authenticated
+      if (!res.headersSent) {
+        res.json({ status: 'authenticated' });
+      }
+    };
+
+    const authFailureHandler = (msg) => {
+      clearTimeout(timeout);
+      console.error(`❌ Auth failure for user ${userId}:`, msg);
+      delete userStates[userId];
+      if (!res.headersSent) {
+        res.status(500).json({
+          status: 'error',
+          message: 'Authentication failed. Please try again.'
+        });
+      }
+    };
+
+    client.once('qr', qrHandler);
+    client.once('ready', readyHandler);
+    client.once('auth_failure', authFailureHandler);
+
+    // Cleanup listeners on timeout
+    setTimeout(() => {
+      if (res.headersSent) {
+        client.removeListener('qr', qrHandler);
+        client.removeListener('ready', readyHandler);
+        client.removeListener('auth_failure', authFailureHandler);
+      }
+    }, 31000);
+
+  } catch (error) {
+    console.error('❌ Error in /auth/:userId:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        status: 'error',
+        message: 'Failed to initialize WhatsApp client. Check server logs for details.',
+        error: error.message
+      });
+    }
+  }
 });
 
   // API for status check
   app.get('/status/:userId', (req, res) => {
     const { userId } = req.params;
     const client = clients[userId];
-    if (client && client.info?.wid) {
-      res.json({ isReady: true });
-    } else {
-      res.json({ isReady: false });
+    const hasQR = !!userStates[userId]?.qr;
+    const isAuthenticated = !!(client && client.info?.wid);
+
+    res.json({
+      isReady: isAuthenticated,
+      hasClient: !!client,
+      hasQR: hasQR,
+      clientState: client ? 'initialized' : 'not_created'
+    });
+  });
+
+  // Debug endpoint to reset client (useful for testing)
+  app.delete('/auth/:userId', isAuthenticated, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = req.user as User;
+
+      // Only admin or the user themselves can reset their client
+      if (user.role !== 'admin' && user.username !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      console.log(`🗑️ Resetting WhatsApp client for user ${userId}`);
+
+      if (clients[userId]) {
+        await clients[userId].destroy();
+        delete clients[userId];
+      }
+
+      delete userStates[userId];
+
+      // Also delete session files
+      const sessionPath = path.resolve(`./sessions/user_${userId}`);
+      await fs.rm(sessionPath, { recursive: true, force: true });
+
+      res.json({ message: `Client reset for user ${userId}` });
+    } catch (error) {
+      console.error('Error resetting client:', error);
+      res.status(500).json({ message: 'Failed to reset client', error: error.message });
     }
   });
 
   // ✅ API to send message batch
   app.post('/send-message/:userId', async (req, res) => {
-    const { userId } = req.params;
-    const client = getClient(userId);
-    if (!client.info?.wid) return res.status(400).json({ message: 'Not Authenticated' });
-  
-    const { numbers, message } = req.body; // numbers = ['919876543210', '919123456789']
-    const results = [];
+    try {
+      const { userId } = req.params;
+      const client = await getClient(userId);
 
-    for (let i = 0; i < numbers.length; i++) {
-      const num = numbers[i];
-      const chatId = `91${num}@c.us`;
-      try {
-        await client.sendMessage(chatId, message);
-        results.push({ number: num, status: 'Sent' });
-      } catch (err) {
-        results.push({ number: num, status: 'Failed', error: err.message });
+      if (!client.info?.wid) {
+        return res.status(400).json({ message: 'Not Authenticated' });
       }
-      const randomDelay = 3000 + Math.random() * 2000; // 3-5 sec delay
-      await delay(randomDelay);
+
+      const { numbers, message } = req.body;
+
+      if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
+        return res.status(400).json({ message: 'Invalid numbers array' });
+      }
+
+      if (!message) {
+        return res.status(400).json({ message: 'Message is required' });
+      }
+
+      const results = [];
+
+      for (let i = 0; i < numbers.length; i++) {
+        const num = numbers[i];
+        const chatId = `91${num}@c.us`;
+        try {
+          await client.sendMessage(chatId, message);
+          results.push({ number: num, status: 'Sent' });
+        } catch (err) {
+          console.error(`Failed to send message to ${num}:`, err);
+          results.push({ number: num, status: 'Failed', error: err.message });
+        }
+        const randomDelay = 3000 + Math.random() * 2000; // 3-5 sec delay
+        await delay(randomDelay);
+      }
+
+      res.json({ results });
+    } catch (error) {
+      console.error('❌ Error in /send-message/:userId:', error);
+      res.status(500).json({
+        message: 'Failed to send messages',
+        error: error.message
+      });
     }
-    res.json({ results });
   });
 
   // === CONTACTS ROUTES ===
