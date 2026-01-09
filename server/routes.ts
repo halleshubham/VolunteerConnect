@@ -188,7 +188,22 @@ async function cleanupSessions() {
 // ✅ Run cleanup every 1 hour
 setInterval(cleanupSessions, 40 * 60 * 1000); // 1 hour
 
-const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+// Store for tracking message sending jobs
+interface MessageJob {
+  id: string;
+  userId: string;
+  total: number;
+  sent: number;
+  failed: number;
+  results: Array<{ number: string; status: string; error?: string }>;
+  status: 'pending' | 'in_progress' | 'completed';
+  startedAt: Date;
+  completedAt?: Date;
+}
+
+const messageJobs: Record<string, MessageJob> = {};
 
 // Add this function after CampaignData interface
 function distributeContactsEvenly(contacts: Array<{
@@ -414,18 +429,13 @@ app.get('/auth/:userId', async (req, res) => {
     }
   });
 
-  // ✅ API to send message batch
+  // ✅ API to send message batch with progress tracking (SSE)
   app.post('/send-message/:userId', async (req, res) => {
     try {
       const { userId } = req.params;
-      const client = await getClient(userId);
+      const { numbers, message, useSSE } = req.body;
 
-      if (!client.info?.wid) {
-        return res.status(400).json({ message: 'Not Authenticated' });
-      }
-
-      const { numbers, message } = req.body;
-
+      // Validation
       if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
         return res.status(400).json({ message: 'Invalid numbers array' });
       }
@@ -434,30 +444,206 @@ app.get('/auth/:userId', async (req, res) => {
         return res.status(400).json({ message: 'Message is required' });
       }
 
-      const results = [];
-
-      for (let i = 0; i < numbers.length; i++) {
-        const num = numbers[i];
-        const chatId = `91${num}@c.us`;
-        try {
-          await client.sendMessage(chatId, message);
-          results.push({ number: num, status: 'Sent' });
-        } catch (err) {
-          console.error(`Failed to send message to ${num}:`, err);
-          results.push({ number: num, status: 'Failed', error: err.message });
+      // Deduplicate numbers
+      const uniqueNumbers = [...new Set(numbers.map((n: string) => {
+        let num = n.toString().trim();
+        // Remove any leading + or 0
+        num = num.replace(/^\+/, '').replace(/^0+/, '');
+        // Add country code if not present
+        if (!num.startsWith('91') && num.length === 10) {
+          num = '91' + num;
         }
-        const randomDelay = 3000 + Math.random() * 2000; // 3-5 sec delay
-        await delay(randomDelay);
+        return num;
+      }))];
+
+      const client = await getClient(userId);
+      if (!client.info?.wid) {
+        return res.status(400).json({ message: 'Not Authenticated' });
       }
 
-      res.json({ results });
-    } catch (error) {
+      // Generate unique job ID
+      const jobId = `${userId}_${Date.now()}`;
+
+      // Create job
+      messageJobs[jobId] = {
+        id: jobId,
+        userId,
+        total: uniqueNumbers.length,
+        sent: 0,
+        failed: 0,
+        results: [],
+        status: 'pending',
+        startedAt: new Date()
+      };
+
+      console.log(`📤 Starting message job ${jobId}: ${uniqueNumbers.length} unique numbers (${numbers.length} original)`);
+
+
+
+      // If SSE is requested, set up Server-Sent Events
+      if (useSSE) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        // Send initial event
+        res.write(`data: ${JSON.stringify({
+          type: 'started',
+          jobId,
+          total: uniqueNumbers.length
+        })}\n\n`);
+
+        // Process messages with progress updates
+        messageJobs[jobId].status = 'in_progress';
+
+        for (let i = 0; i < uniqueNumbers.length; i++) {
+          const num = uniqueNumbers[i];
+          const chatId = `${num}@c.us`;
+
+          try {
+            await client.sendMessage(chatId, message);
+            messageJobs[jobId].sent++;
+            messageJobs[jobId].results.push({ number: num, status: 'Sent' });
+
+            // Send progress update
+            res.write(`data: ${JSON.stringify({
+              type: 'progress',
+              jobId,
+              current: i + 1,
+              total: uniqueNumbers.length,
+              sent: messageJobs[jobId].sent,
+              failed: messageJobs[jobId].failed,
+              number: num,
+              status: 'Sent'
+            })}\n\n`);
+          } catch (err: any) {
+            console.error(`Failed to send message to ${num}:`, err);
+            messageJobs[jobId].failed++;
+            messageJobs[jobId].results.push({
+              number: num,
+              status: 'Failed',
+              error: err.message
+            });
+
+            // Send error update
+            res.write(`data: ${JSON.stringify({
+              type: 'progress',
+              jobId,
+              current: i + 1,
+              total: uniqueNumbers.length,
+              sent: messageJobs[jobId].sent,
+              failed: messageJobs[jobId].failed,
+              number: num,
+              status: 'Failed',
+              error: err.message
+            })}\n\n`);
+          }
+
+          // Delay between messages (except for the last one)
+          if (i < uniqueNumbers.length - 1) {
+            const randomDelay = 3000 + Math.random() * 2000; // 3-5 sec delay
+            await delay(randomDelay);
+          }
+        }
+
+        // Mark job as completed
+        messageJobs[jobId].status = 'completed';
+        messageJobs[jobId].completedAt = new Date();
+
+        // Send completion event
+        res.write(`data: ${JSON.stringify({
+          type: 'completed',
+          jobId,
+          sent: messageJobs[jobId].sent,
+          failed: messageJobs[jobId].failed,
+          results: messageJobs[jobId].results
+        })}\n\n`);
+
+        res.end();
+
+        // Clean up job after 5 minutes
+        setTimeout(() => {
+          delete messageJobs[jobId];
+        }, 5 * 60 * 1000);
+
+      } else {
+        // Non-SSE mode: Process in background and return job ID immediately
+        res.json({
+          jobId,
+          message: 'Message sending started. Use /send-message-status/:jobId to check progress.',
+          total: uniqueNumbers.length
+        });
+
+        // Process messages in background
+        (async () => {
+          messageJobs[jobId].status = 'in_progress';
+
+          for (let i = 0; i < uniqueNumbers.length; i++) {
+            const num = uniqueNumbers[i];
+            const chatId = `${num}@c.us`;
+
+            try {
+              await client.sendMessage(chatId, message);
+              messageJobs[jobId].sent++;
+              messageJobs[jobId].results.push({ number: num, status: 'Sent' });
+            } catch (err: any) {
+              console.error(`Failed to send message to ${num}:`, err);
+              messageJobs[jobId].failed++;
+              messageJobs[jobId].results.push({
+                number: num,
+                status: 'Failed',
+                error: err.message
+              });
+            }
+
+            // Delay between messages
+            if (i < uniqueNumbers.length - 1) {
+              const randomDelay = 3000 + Math.random() * 2000;
+              await delay(randomDelay);
+            }
+          }
+
+          messageJobs[jobId].status = 'completed';
+          messageJobs[jobId].completedAt = new Date();
+
+          // Clean up job after 10 minutes
+          setTimeout(() => {
+            delete messageJobs[jobId];
+          }, 10 * 60 * 1000);
+        })();
+      }
+
+    } catch (error: any) {
       console.error('❌ Error in /send-message/:userId:', error);
-      res.status(500).json({
-        message: 'Failed to send messages',
-        error: error.message
-      });
+      if (!res.headersSent) {
+        res.status(500).json({
+          message: 'Failed to send messages',
+          error: error.message
+        });
+      }
     }
+  });
+
+  // API to check message sending progress
+  app.get('/send-message-status/:jobId', (req, res) => {
+    const { jobId } = req.params;
+    const job = messageJobs[jobId];
+
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    res.json({
+      jobId: job.id,
+      status: job.status,
+      total: job.total,
+      sent: job.sent,
+      failed: job.failed,
+      progress: Math.round((job.sent + job.failed) / job.total * 100),
+      results: job.results,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt
+    });
   });
 
   // === CONTACTS ROUTES ===
