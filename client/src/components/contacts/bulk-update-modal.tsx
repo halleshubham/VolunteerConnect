@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Contact, User } from "@shared/schema";
 import { useState, useEffect } from "react";
@@ -78,6 +79,7 @@ export function BulkUpdateModal({
       "housewife",
     ],
     sex: ["male", "female", "other", "prefer_not_to_say"],
+    city: [], // Placeholder - uses text input instead of dropdown
     assignedTo: [], // Will be populated from users query
   };
 
@@ -142,8 +144,8 @@ export function BulkUpdateModal({
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-gray-500 mt-1">
-                  {updateMode === "replace" 
-                    ? "This will replace all existing assigned users with your selection." 
+                  {updateMode === "replace"
+                    ? "This will replace all existing assigned users with your selection."
                     : "This will add your selected users to the existing assignments."}
                 </p>
               </div>
@@ -183,6 +185,15 @@ export function BulkUpdateModal({
                   ))}
                 </div>
               </div>
+            </div>
+          ) : selectedField === "city" ? (
+            <div className="space-y-2">
+              <Label>Enter New City</Label>
+              <Input
+                value={selectedValue}
+                onChange={(e) => setSelectedValue(e.target.value)}
+                placeholder="Enter city name"
+              />
             </div>
           ) : selectedField && selectedField !== "assignedTo" ? (
             <div className="space-y-2">
