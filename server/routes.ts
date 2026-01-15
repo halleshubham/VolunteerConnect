@@ -167,6 +167,11 @@ async function getClient(userId:any) {
         '--no-zygote',
         '--disable-gpu'
       ]
+    },
+    // Use latest stable WhatsApp Web version from wppconnect
+    webVersionCache: {
+      type: 'remote',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1032040031-alpha.html',
     }
   });
 
@@ -625,48 +630,26 @@ app.get('/auth/:userId', async (req, res) => {
               status: 'Sent'
             })}\n\n`);
           } catch (err: any) {
-            // Check if this is a "markedUnread" error - these are often false failures
-            // The message is likely sent, but the follow-up sendSeen call failed
-            const isMarkedUnreadError = err.message && err.message.includes('markedUnread');
+            console.error(`Failed to send message to ${num}:`, err);
+            messageJobs[jobId].failed++;
+            messageJobs[jobId].results.push({
+              number: num,
+              status: 'Failed',
+              error: err.message
+            });
 
-            if (isMarkedUnreadError) {
-              console.warn(`⚠️ Message likely sent to ${num}, but sendSeen failed (non-critical):`, err.message);
-              // Treat as success since the message was probably sent
-              messageJobs[jobId].sent++;
-              messageJobs[jobId].results.push({ number: num, status: 'Sent' });
-
-              res.write(`data: ${JSON.stringify({
-                type: 'progress',
-                jobId,
-                current: i + 1,
-                total: uniqueNumbers.length,
-                sent: messageJobs[jobId].sent,
-                failed: messageJobs[jobId].failed,
-                number: num,
-                status: 'Sent'
-              })}\n\n`);
-            } else {
-              console.error(`Failed to send message to ${num}:`, err);
-              messageJobs[jobId].failed++;
-              messageJobs[jobId].results.push({
-                number: num,
-                status: 'Failed',
-                error: err.message
-              });
-
-              // Send error update
-              res.write(`data: ${JSON.stringify({
-                type: 'progress',
-                jobId,
-                current: i + 1,
-                total: uniqueNumbers.length,
-                sent: messageJobs[jobId].sent,
-                failed: messageJobs[jobId].failed,
-                number: num,
-                status: 'Failed',
-                error: err.message
-              })}\n\n`);
-            }
+            // Send error update
+            res.write(`data: ${JSON.stringify({
+              type: 'progress',
+              jobId,
+              current: i + 1,
+              total: uniqueNumbers.length,
+              sent: messageJobs[jobId].sent,
+              failed: messageJobs[jobId].failed,
+              number: num,
+              status: 'Failed',
+              error: err.message
+            })}\n\n`);
           }
 
           // Delay between messages (except for the last one)
@@ -732,24 +715,13 @@ app.get('/auth/:userId', async (req, res) => {
               messageJobs[jobId].sent++;
               messageJobs[jobId].results.push({ number: num, status: 'Sent' });
             } catch (err: any) {
-              // Check if this is a "markedUnread" error - these are often false failures
-              // The message is likely sent, but the follow-up sendSeen call failed
-              const isMarkedUnreadError = err.message && err.message.includes('markedUnread');
-
-              if (isMarkedUnreadError) {
-                console.warn(`⚠️ Message likely sent to ${num}, but sendSeen failed (non-critical):`, err.message);
-                // Treat as success since the message was probably sent
-                messageJobs[jobId].sent++;
-                messageJobs[jobId].results.push({ number: num, status: 'Sent' });
-              } else {
-                console.error(`Failed to send message to ${num}:`, err);
-                messageJobs[jobId].failed++;
-                messageJobs[jobId].results.push({
-                  number: num,
-                  status: 'Failed',
-                  error: err.message
-                });
-              }
+              console.error(`Failed to send message to ${num}:`, err);
+              messageJobs[jobId].failed++;
+              messageJobs[jobId].results.push({
+                number: num,
+                status: 'Failed',
+                error: err.message
+              });
             }
 
             // Delay between messages
