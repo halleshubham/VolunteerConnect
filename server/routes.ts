@@ -74,8 +74,48 @@ const upload = multer({
 
 let latestQR = null;
 let isReady = false;
-const clients = {};  // Store WhatsApp client per user
-const userStates = {}; // Store QR codes and states - declared here for global access
+const clients: Record<string, any> = {};  // Store WhatsApp client per user
+const userStates: Record<string, { qr: string; lastUpdated: number }> = {}; // Store QR codes and states - declared here for global access
+
+// Helper function to clean up lock files
+async function cleanupSessionLocks(userId: string) {
+  const sessionPath = path.resolve(`./sessions/user_${userId}/session`);
+
+  try {
+    // Remove lock files that prevent browser reuse
+    const lockFiles = [
+      'SingletonLock',
+      'SingletonCookie',
+      'SingletonSocket'
+    ];
+
+    for (const lockFile of lockFiles) {
+      const lockPath = path.join(sessionPath, lockFile);
+      try {
+        await fs.unlink(lockPath);
+        console.log(`🗑️ Removed lock file: ${lockFile}`);
+      } catch (err: any) {
+        // File doesn't exist or already removed, ignore
+      }
+    }
+  } catch (err: any) {
+    console.log(`⚠️ Could not clean locks for ${userId}:`, err.message);
+  }
+}
+
+// Helper function to properly destroy a client
+async function destroyClient(userId: string) {
+  if (clients[userId]) {
+    try {
+      await clients[userId].destroy();
+      console.log(`🗑️ Destroyed client for ${userId}`);
+    } catch (err: any) {
+      console.error(`⚠️ Error destroying client for ${userId}:`, err.message);
+    }
+    delete clients[userId];
+  }
+  delete userStates[userId];
+}
 
 // Create and return client for specific user
 async function getClient(userId:any) {
@@ -85,6 +125,9 @@ async function getClient(userId:any) {
   }
 
   console.log(`🔄 Creating new WhatsApp client for user ${userId}`);
+
+  // Clean up any stale lock files before creating new client
+  await cleanupSessionLocks(userId);
 
   // Try to find system Chrome/Chromium
   const chromePaths = [
@@ -124,6 +167,11 @@ async function getClient(userId:any) {
         '--no-zygote',
         '--disable-gpu'
       ]
+    },
+    // Use a specific WhatsApp Web version that's known to work
+    webVersionCache: {
+      type: 'remote',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
     }
   });
 
@@ -138,25 +186,31 @@ async function getClient(userId:any) {
     delete userStates[userId]; // Clear QR cache when authenticated
   });
 
-  client.on('auth_failure', (msg) => {
+  client.on('auth_failure', async (msg: any) => {
     console.error(`❌ Auth failure for user ${userId}:`, msg);
-    delete userStates[userId];
+    await destroyClient(userId);
   });
 
-  client.on('disconnected', (reason) => {
+  client.on('disconnected', async (reason: any) => {
     console.log(`⚠️ Client disconnected for user ${userId}:`, reason);
-    delete clients[userId];
-    delete userStates[userId];
+    await destroyClient(userId);
   });
 
   client.on('loading_screen', (percent, message) => {
     console.log(`⏳ Loading for user ${userId}: ${percent}% - ${message}`);
   });
 
-  client.initialize().catch((err) => {
+  client.initialize().catch(async (err: any) => {
     console.error(`❌ Failed to initialize WhatsApp client for user ${userId}:`, err);
-    delete clients[userId];
-    delete userStates[userId];
+
+    // Properly destroy the client to clean up browser processes
+    await destroyClient(userId);
+
+    // If it's a browser already running error, clean up locks and try again
+    if (err.message && err.message.includes('browser is already running')) {
+      console.log(`🔧 Attempting to clean up stale browser for ${userId}`);
+      await cleanupSessionLocks(userId);
+    }
   });
 
   clients[userId] = client;
@@ -168,18 +222,18 @@ async function cleanupSessions() {
   console.log('Running WhatsApp session cleanup...');
   for (const userId in clients) {
     try {
-    const sessionPath = path.resolve(`./sessions/user_${userId}`);
-    
-      // Destroy the client if connected
-      if (clients[userId]) {
-        await clients[userId].destroy();
-        delete clients[userId];
-      }
+      const sessionPath = path.resolve(`./sessions/user_${userId}`);
+
+      // Properly destroy the client
+      await destroyClient(userId);
+
+      // Clean up lock files
+      await cleanupSessionLocks(userId);
 
       // Delete the session folder
       await fs.rm(sessionPath, { recursive: true, force: true });
       console.log(`Session cleaned: ${sessionPath}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Error cleaning session for user ${userId}:`, err);
     }
   }
@@ -427,19 +481,18 @@ app.get('/auth/:userId', async (req, res) => {
 
       console.log(`🗑️ Resetting WhatsApp client for user ${userId}`);
 
-      if (clients[userId]) {
-        await clients[userId].destroy();
-        delete clients[userId];
-      }
+      // Properly destroy the client
+      await destroyClient(userId);
 
-      delete userStates[userId];
+      // Clean up lock files
+      await cleanupSessionLocks(userId);
 
       // Also delete session files
       const sessionPath = path.resolve(`./sessions/user_${userId}`);
       await fs.rm(sessionPath, { recursive: true, force: true });
 
       res.json({ message: `Client reset for user ${userId}` });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resetting client:', error);
       res.status(500).json({ message: 'Failed to reset client', error: error.message });
     }
