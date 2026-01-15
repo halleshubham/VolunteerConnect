@@ -168,10 +168,10 @@ async function getClient(userId:any) {
         '--disable-gpu'
       ]
     },
-    // Use latest stable WhatsApp Web version from wppconnect
+    // Use stable WhatsApp Web version that works with sendSeen fix
     webVersionCache: {
       type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1032040031-alpha.html',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/refs/heads/main/html/2.3000.1031490220-alpha.html',
     }
   });
 
@@ -611,9 +611,9 @@ app.get('/auth/:userId', async (req, res) => {
           try {
             // Send message with or without image
             if (hasImage && imageMedia) {
-              await client.sendMessage(chatId, imageMedia, { caption: message });
+              await client.sendMessage(chatId, imageMedia, { caption: message, sendSeen: false });
             } else {
-              await client.sendMessage(chatId, message);
+              await client.sendMessage(chatId, message, { sendSeen: false });
             }
             messageJobs[jobId].sent++;
             messageJobs[jobId].results.push({ number: num, status: 'Sent' });
@@ -708,9 +708,9 @@ app.get('/auth/:userId', async (req, res) => {
             try {
               // Send message with or without image
               if (hasImage && imageMedia) {
-                await client.sendMessage(chatId, imageMedia, { caption: message });
+                await client.sendMessage(chatId, imageMedia, { caption: message, sendSeen: false });
               } else {
-                await client.sendMessage(chatId, message);
+                await client.sendMessage(chatId, message, { sendSeen: false });
               }
               messageJobs[jobId].sent++;
               messageJobs[jobId].results.push({ number: num, status: 'Sent' });
